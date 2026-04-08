@@ -1,0 +1,72 @@
+/* Global styles - mostly covered by index.html internal styles and tailwind cdn */
+body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/*
+ * Bug 1 Ultimate: 核弹级拦截一切未知注入的 fixed/absolute 圆形元素
+ * 这些元素特征为：border-radius: 50%, 极小尺寸, 高 z-index
+ * 它们可能来自浏览器扩展、触控驱动、或 Tailwind CDN 的默认 focus ring
+ */
+
+/* 1. 彻底禁用所有触控/焦点视觉反馈 */
+* {
+    -webkit-tap-highlight-color: transparent !important;
+}
+
+/* 2. 禁用所有元素的 focus ring（Tailwind CDN 默认会生成 ring） */
+*:focus,
+*:focus-visible,
+*:focus-within {
+    outline: none !important;
+    outline-offset: 0 !important;
+    --tw-ring-shadow: none !important;
+    --tw-ring-color: transparent !important;
+    --tw-ring-offset-shadow: none !important;
+}
+
+/* Bug #2/#6: 精确禁用侧边栏按钮的 focus ring，防止绿色圆圈 */
+aside button,
+aside button:focus,
+aside button:active {
+    outline: none !important;
+    box-shadow: none !important;
+    --tw-ring-shadow: none !important;
+    --tw-ring-color: transparent !important;
+}
+
+/* 3. 已知的外部注入圆点特征精确拦截 (修改为后代选择器，覆盖 #mount 内嵌套的情况) */
+body div[style*="pointer-events: none"][style*="border-radius: 50%"],
+body div[style*="background-color: rgba(16, 185, 129)"],
+body div[style*="background-color: rgba(0, 255, 255)"],
+body div[style*="background-color: rgb(16, 185, 129)"],
+body div[style*="background-color: rgb(0, 255, 255)"],
+body div[style*="background: rgb(16, 185)"],
+body div[style*="background: rgba(0, 255)"],
+body div[style*="z-index: 99999"],
+body div[style*="z-index: 2147483647"],
+.pointer-feedback,
+.touch-feedback,
+#pointer-feedback,
+#touch-feedback {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    width: 0 !important;
+    height: 0 !important;
+    pointer-events: none !important;
+}
+
+/* 4. 通配过滤所有非 #root 后代的 fixed 圆形元素 */
+body> :not(#root):not(script):not(link):not(style):not(#debug-banner) {
+    display: none !important;
+    pointer-events: none !important;
+}
+
+/* 5. 修复：彻底隐藏 html2canvas 的 #mount 容器及其内部所有注入节点 */
+#mount {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+}

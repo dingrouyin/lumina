@@ -1,0 +1,9 @@
+{
+  "outputDirectory": "dist",
+  "framework": null,
+  "functions": {
+    "api/vertex.js": {
+      "maxDuration": 60
+    }
+  }
+}

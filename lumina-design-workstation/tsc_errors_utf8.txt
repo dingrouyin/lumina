@@ -1,0 +1,8 @@
+﻿//192.168.31.200/LuminaData/sda4/Lumina/lumina-design-workstation/node_modules/react-markdown/lib/complex-types.ts(25,21): error TS2503: Cannot find namespace 'JSX'.
+//192.168.31.200/LuminaData/sda4/Lumina/lumina-design-workstation/node_modules/react-markdown/lib/complex-types.ts(26,13): error TS2503: Cannot find namespace 'JSX'.
+//192.168.31.200/LuminaData/sda4/Lumina/lumina-design-workstation/node_modules/react-markdown/lib/complex-types.ts(27,46): error TS2344: Type 'TagName' does not satisfy the constraint 'ElementType<any, keyof IntrinsicElements>'.
+  Type 'string | number | symbol' is not assignable to type 'ElementType<any, keyof IntrinsicElements>'.
+    Type 'string' is not assignable to type 'ElementType<any, keyof IntrinsicElements>'.
+      Type 'TagName' is not assignable to type 'FunctionComponent<any>'.
+        Type 'string | number | symbol' is not assignable to type 'FunctionComponent<any>'.
+          Type 'string' is not assignable to type 'FunctionComponent<any>'.

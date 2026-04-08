@@ -1,0 +1,9 @@
+{
+  "type": "module",
+  "scripts": {
+    "build": "bash build.sh"
+  },
+  "dependencies": {
+    "@google-cloud/vertexai": "^1.10.0"
+  }
+}
