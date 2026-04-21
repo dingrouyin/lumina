@@ -112,7 +112,7 @@ export default async function handler(req, res) {
           sampleCount: 1,
           aspectRatio,
           safetyFilterLevel: 'block_some',
-          personGeneration: 'allow_adult',
+          personGeneration: 'allow_all',
         },
       };
     }
@@ -147,7 +147,7 @@ export default async function handler(req, res) {
 
     if (!imageBase64) {
       console.error('[generate-image] 无图片数据:', JSON.stringify(data).substring(0, 300));
-      throw new Error('服务返回了空结果，请重试');
+      throw new Error('内容被安全过滤器拦截，请换一种描述方式后重试');
     }
 
     return res.status(200).json({ imageBase64, mimeType });
