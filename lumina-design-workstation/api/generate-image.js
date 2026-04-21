@@ -14,7 +14,7 @@ async function translateToEnglish(text, accessToken, projectId) {
   const body = {
     contents: [{
       role: 'user',
-      parts: [{ text: `Translate the following image generation prompt to English. Return ONLY the translated prompt, no explanation, no quotes:\n${text}` }],
+      parts: [{ text: `Convert the following text into a concise English visual description suitable for an image generation model (Imagen 3). Return ONLY a short noun-phrase describing what should visually appear in the image. Do NOT include words like "generate", "create", "make", "image", or "picture". Just describe the visual subject and style.\n\nInput: ${text}\n\nEnglish visual description:` }],
     }],
   };
   try {
