@@ -1,7 +1,7 @@
 import { GoogleAuth } from 'google-auth-library';
 
 const LOCATION = 'us-central1';
-const MODEL = 'imagegeneration@006'; // Imagen 3 Fast
+const MODEL = 'imagen-3.0-fast-generate-001'; // Imagen 3 Fast
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
