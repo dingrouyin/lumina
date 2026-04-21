@@ -153,6 +153,8 @@ const App: React.FC = () => {
 
   // --- AI 生图面板状态 ---
   const [showAIImagePanel, setShowAIImagePanel] = useState(false);
+  // 打开面板时快照选中图片 URL（防止打开时事件冒泡导致选区丢失）
+  const [aiEditImageDataUrl, setAiEditImageDataUrl] = useState<string | undefined>(undefined);
 
 
   // --- Tool State ---
@@ -1577,7 +1579,14 @@ const App: React.FC = () => {
           {/* AI 生图按钮 */}
           <button
             title="AI 生图（Imagen 3）"
-            onPointerDown={(e) => { e.stopPropagation(); setShowAIImagePanel(prev => !prev); }}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              if (!showAIImagePanel) {
+                const el = elementsRef.current.find(el => el.id === selectedIdsRef.current[0]);
+                setAiEditImageDataUrl(el?.type === 'image' ? el.content : undefined);
+              }
+              setShowAIImagePanel(prev => !prev);
+            }}
             className={`w-10 h-10 flex items-center justify-center rounded-full cursor-pointer transition-all shadow-sm active:scale-95 shrink-0 border ${
               showAIImagePanel
                 ? 'bg-gradient-to-br from-violet-600 to-fuchsia-500 border-transparent text-white shadow-md shadow-violet-300'
@@ -1712,7 +1721,7 @@ const App: React.FC = () => {
           onClose={() => setShowAIImagePanel(false)}
           onInsertImage={handleInsertAIImage}
           onShowToast={handleShowToast}
-          selectedImageDataUrl={selectedImageDataUrl}
+          selectedImageDataUrl={aiEditImageDataUrl}
         />
 
         {isResizingRight && <div className="fixed inset-0 z-50 cursor-col-resize pointer-events-auto bg-black/5" />}
