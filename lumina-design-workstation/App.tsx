@@ -1413,6 +1413,7 @@ const App: React.FC = () => {
   };
 
   const selectedElement = elements.find(el => el.id === selectedIds[0]) || null;
+  const selectedImageDataUrl = selectedElement?.type === 'image' ? selectedElement.content : undefined;
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, isTyping]);
 
@@ -1711,6 +1712,7 @@ const App: React.FC = () => {
           onClose={() => setShowAIImagePanel(false)}
           onInsertImage={handleInsertAIImage}
           onShowToast={handleShowToast}
+          selectedImageDataUrl={selectedImageDataUrl}
         />
 
         {isResizingRight && <div className="fixed inset-0 z-50 cursor-col-resize pointer-events-auto bg-black/5" />}
