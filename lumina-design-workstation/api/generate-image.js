@@ -60,11 +60,7 @@ export default async function handler(req, res) {
       requestBody = {
         instances: [{
           prompt: prompt.trim(),
-          referenceImages: [{
-            referenceType: 'REFERENCE_TYPE_RAW',
-            referenceId: 1,
-            referenceImage: { bytesBase64Encoded: inputImageBase64 },
-          }],
+          image: { bytesBase64Encoded: inputImageBase64 },
         }],
         parameters: {
           editConfig: { editMode },
