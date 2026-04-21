@@ -3,6 +3,35 @@ import { GoogleAuth } from 'google-auth-library';
 const LOCATION = 'us-central1';
 const GEN_MODEL = 'imagen-3.0-fast-generate-001';   // 文生图
 const EDIT_MODEL = 'imagen-3.0-capability-001';      // 图像编辑
+const GEMINI_MODEL = 'gemini-2.0-flash-001';         // 中文翻译
+
+function hasChinese(text) {
+  return /[\u4e00-\u9fff]/.test(text);
+}
+
+async function translateToEnglish(text, accessToken, projectId) {
+  const endpoint = `https://${LOCATION}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${LOCATION}/publishers/google/models/${GEMINI_MODEL}:generateContent`;
+  const body = {
+    contents: [{
+      role: 'user',
+      parts: [{ text: `Translate the following image generation prompt to English. Return ONLY the translated prompt, no explanation, no quotes:\n${text}` }],
+    }],
+  };
+  try {
+    const resp = await fetch(endpoint, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!resp.ok) return text;
+    const data = await resp.json();
+    const translated = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    return translated || text;
+  } catch {
+    return text; // 翻译失败时原样发送
+  }
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -53,13 +82,21 @@ export default async function handler(req, res) {
     const accessToken = tokenResponse.token;
     if (!accessToken) throw new Error('无法获取 Google Cloud 访问令牌');
 
+    // 中文 prompt 自动翻译为英文（Imagen 3 中文支持差）
+    let finalPrompt = prompt.trim();
+    if (hasChinese(finalPrompt)) {
+      const translated = await translateToEnglish(finalPrompt, accessToken, projectId);
+      console.log(`[generate-image] 翻译: "${finalPrompt}" → "${translated}"`);
+      finalPrompt = translated;
+    }
+
     let endpoint, requestBody;
 
     if (isEditMode) {
       endpoint = `https://${LOCATION}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${LOCATION}/publishers/google/models/${EDIT_MODEL}:predict`;
       requestBody = {
         instances: [{
-          prompt: prompt.trim(),
+          prompt: finalPrompt,
           image: { bytesBase64Encoded: inputImageBase64 },
         }],
         parameters: {
