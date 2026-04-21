@@ -4,6 +4,7 @@ export interface UseImageGenerationReturn {
   generate: (prompt: string, aspectRatio: string, inputImageDataUrl?: string, editMode?: string) => Promise<string | null>;
   isLoading: boolean;
   error: string | null;
+  translatedPrompt: string | null;
   clearError: () => void;
 }
 
@@ -12,8 +13,9 @@ const API_BASE = import.meta.env.DEV ? 'http://localhost:3001' : '';
 export function useImageGeneration(): UseImageGenerationReturn {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [translatedPrompt, setTranslatedPrompt] = useState<string | null>(null);
 
-  const clearError = useCallback(() => setError(null), []);
+  const clearError = useCallback(() => { setError(null); setTranslatedPrompt(null); }, []);
 
   const generate = useCallback(async (
     prompt: string,
@@ -62,9 +64,10 @@ export function useImageGeneration(): UseImageGenerationReturn {
         throw new Error(data.error || `服务器错误 (${response.status})`);
       }
 
-      const { imageBase64, mimeType = 'image/png' } = data;
+      const { imageBase64, mimeType = 'image/png', finalPrompt } = data;
       if (!imageBase64) throw new Error('未收到图片数据，请重试');
 
+      if (finalPrompt) setTranslatedPrompt(finalPrompt);
       return `data:${mimeType};base64,${imageBase64}`;
 
     } catch (err: unknown) {
@@ -80,5 +83,5 @@ export function useImageGeneration(): UseImageGenerationReturn {
     }
   }, []);
 
-  return { generate, isLoading, error, clearError };
+  return { generate, isLoading, error, translatedPrompt, clearError };
 }

@@ -50,7 +50,7 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
   const [aspectRatio, setAspectRatio] = useState<string>('1:1');
   const [editMode, setEditMode] = useState<string>('EDIT_MODE_DEFAULT');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const { generate, isLoading, error, clearError } = useImageGeneration();
+  const { generate, isLoading, error, translatedPrompt, clearError } = useImageGeneration();
 
   const isEditMode = Boolean(selectedImageDataUrl);
 
@@ -256,6 +256,16 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
               </div>
             )}
           </div>
+
+          {/* 翻译提示（中文 prompt 时显示实际发给 Imagen 的英文） */}
+          {translatedPrompt && !isLoading && (
+            <div className="flex items-start gap-2 px-3 py-2.5 bg-blue-50 border border-blue-100 rounded-2xl text-blue-600 animate-in fade-in">
+              <i className="fa-solid fa-language text-xs mt-0.5 shrink-0" />
+              <p className="text-[11px] font-medium leading-relaxed">
+                <span className="font-bold">已翻译为：</span>{translatedPrompt}
+              </p>
+            </div>
+          )}
 
           {/* 错误提示 */}
           {error && (

@@ -3,7 +3,7 @@ import { GoogleAuth } from 'google-auth-library';
 const LOCATION = 'us-central1';
 const GEN_MODEL = 'imagen-3.0-fast-generate-001';   // 文生图
 const EDIT_MODEL = 'imagen-3.0-capability-001';      // 图像编辑
-const GEMINI_MODEL = 'gemini-2.0-flash-001';         // 中文翻译
+const GEMINI_MODEL = 'gemini-1.5-flash';              // 中文翻译
 
 function hasChinese(text) {
   return /[\u4e00-\u9fff]/.test(text);
@@ -150,7 +150,7 @@ export default async function handler(req, res) {
       throw new Error('内容被安全过滤器拦截，请换一种描述方式后重试');
     }
 
-    return res.status(200).json({ imageBase64, mimeType });
+    return res.status(200).json({ imageBase64, mimeType, finalPrompt });
 
   } catch (error) {
     if (error.name === 'TimeoutError' || error.name === 'AbortError') {
