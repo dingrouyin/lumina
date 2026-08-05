@@ -10,9 +10,9 @@ interface RightDockProps {
 
 const RightDock: React.FC<RightDockProps> = ({ activeDrawer, dockedPanels, onToggle, hasSelection, onShowToast }) => {
     return (
-        <aside className="w-16 h-full flex flex-col items-center bg-white border-l border-gray-100 shadow-sm relative z-[45] shrink-0 select-none">
-            {/* Top Icons */}
-            <div className="flex flex-col gap-4 w-full items-center py-6">
+        <aside className="w-16 h-full flex flex-col items-center justify-between bg-white border-l border-gray-100 shadow-sm relative z-[45] shrink-0 select-none overflow-y-auto">
+            {/* Top group: 素材 + 模板 */}
+            <div className="flex flex-col gap-2 w-full items-center pt-4 pb-2">
                 <button
                     type="button"
                     onClick={e => { e.preventDefault(); e.stopPropagation(); onShowToast?.('素材库 / 组件功能建设中，敬请期待'); }}
@@ -33,10 +33,10 @@ const RightDock: React.FC<RightDockProps> = ({ activeDrawer, dockedPanels, onTog
                 </button>
             </div>
 
-            <div className="w-6 h-px bg-gray-100 my-2"></div>
+            <div className="w-6 h-px bg-gray-100 shrink-0"></div>
 
-            {/* Middle Icons */}
-            <div className="flex flex-col gap-4 w-full items-center py-4 flex-grow">
+            {/* Middle group: 图层 + 文字 */}
+            <div className="flex flex-col gap-2 w-full items-center py-2">
                 <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); onToggle('layers'); }}
@@ -63,8 +63,10 @@ const RightDock: React.FC<RightDockProps> = ({ activeDrawer, dockedPanels, onTog
                 </button>
             </div>
 
-            {/* Bottom Icon */}
-            <div className="flex flex-col gap-4 w-full items-center py-6">
+            <div className="w-6 h-px bg-gray-100 shrink-0"></div>
+
+            {/* Bottom group: 设置 + AI工具 */}
+            <div className="flex flex-col gap-2 w-full items-center pt-2 pb-4">
                 <button
                     type="button"
                     onClick={e => { e.preventDefault(); e.stopPropagation(); onShowToast?.('画布设置 / 快捷键说明建设中'); }}

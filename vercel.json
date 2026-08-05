@@ -4,6 +4,9 @@
   "functions": {
     "api/vertex.js": {
       "maxDuration": 60
+    },
+    "api/generate-image.js": {
+      "maxDuration": 60
     }
   }
 }
