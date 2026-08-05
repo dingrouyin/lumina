@@ -16,6 +16,11 @@ const ASPECT_RATIOS = [
   { label: '4:3', value: '4:3', w: 512, h: 384 },
 ] as const;
 
+const MODEL_OPTIONS = [
+  { label: 'Gemini 2.5 Flash', value: 'google/gemini-2.5-flash-image', hint: '约 $0.04/张，速度快' },
+  { label: 'Seedream 4.5', value: 'bytedance-seed/seedream-4.5', hint: '效果对比备选' },
+] as const;
+
 const EDIT_MODES = [
   {
     value: 'EDIT_MODE_DEFAULT',
@@ -49,8 +54,9 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
   const [prompt, setPrompt] = useState('');
   const [aspectRatio, setAspectRatio] = useState<string>('1:1');
   const [editMode, setEditMode] = useState<string>('EDIT_MODE_DEFAULT');
+  const [model, setModel] = useState<string>(MODEL_OPTIONS[0].value);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const { generate, isLoading, error, translatedPrompt, clearError } = useImageGeneration();
+  const { generate, isLoading, error, translatedPrompt, usedModel, clearError } = useImageGeneration();
 
   const isEditMode = Boolean(selectedImageDataUrl);
 
@@ -78,12 +84,14 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
       isEditMode ? '1:1' : aspectRatio,
       isEditMode ? selectedImageDataUrl : undefined,
       isEditMode ? editMode : undefined,
+      model,
     );
 
     if (dataUrl) {
       const selected = ASPECT_RATIOS.find(r => r.value === aspectRatio) || ASPECT_RATIOS[0];
       onInsertImage(dataUrl, selected.w, selected.h);
-      onShowToast(isEditMode ? '✨ 图片已编辑并插入画布' : '✨ 图片已生成并插入画布');
+      const modelLabel = MODEL_OPTIONS.find(m => m.value === model)?.label || model;
+      onShowToast(`✨ ${isEditMode ? '图片已编辑并插入画布' : '图片已生成并插入画布'}（模型：${modelLabel}）`);
       onClose();
     }
   };
@@ -124,7 +132,7 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
                 {isEditMode ? 'AI 改图' : 'AI 生图'}
               </h3>
               <p className="text-[10px] text-gray-400 font-medium">
-                {isEditMode ? 'Powered by Google Imagen 3 Edit' : 'Powered by Google Imagen 3'}
+                Powered by {MODEL_OPTIONS.find(m => m.value === model)?.label || model}
               </p>
             </div>
           </div>
@@ -137,6 +145,29 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
         </div>
 
         <div className="p-5 space-y-4">
+          {/* 模型选择 */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-gray-600 uppercase tracking-wider">模型</label>
+            <div className="flex gap-2">
+              {MODEL_OPTIONS.map((m) => (
+                <button
+                  key={m.value}
+                  type="button"
+                  onClick={() => { setModel(m.value); clearError(); }}
+                  disabled={isLoading}
+                  title={m.hint}
+                  className={`flex-1 py-2 px-2 rounded-xl text-xs font-bold transition-all border ${
+                    model === m.value
+                      ? 'bg-violet-600 border-violet-600 text-white shadow-md shadow-violet-200'
+                      : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-violet-300 hover:text-violet-600'
+                  }`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* 编辑模式：原图预览 + 编辑类型 */}
           {isEditMode && (
             <div className="space-y-3">
@@ -243,7 +274,7 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
                     <i className="fa-solid fa-paintbrush text-white text-xs" />
                   </div>
                   <p className="text-xs font-bold text-gray-400 animate-pulse">
-                    {isEditMode ? 'Imagen 3 正在修图…' : 'Imagen 3 正在生图…'}
+                    {(MODEL_OPTIONS.find(m => m.value === model)?.label || model)}{isEditMode ? ' 正在修图…' : ' 正在生图…'}
                   </p>
                 </div>
               </div>
@@ -257,12 +288,22 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
             )}
           </div>
 
-          {/* 翻译提示（中文 prompt 时显示实际发给 Imagen 的英文） */}
+          {/* 翻译提示（中文 prompt 时显示实际发给模型的英文） */}
           {translatedPrompt && !isLoading && (
             <div className="flex items-start gap-2 px-3 py-2.5 bg-blue-50 border border-blue-100 rounded-2xl text-blue-600 animate-in fade-in">
               <i className="fa-solid fa-language text-xs mt-0.5 shrink-0" />
               <p className="text-[11px] font-medium leading-relaxed">
                 <span className="font-bold">已翻译为：</span>{translatedPrompt}
+              </p>
+            </div>
+          )}
+
+          {/* 实际使用的模型（确认调用的是哪个） */}
+          {usedModel && !isLoading && !error && (
+            <div className="flex items-start gap-2 px-3 py-2.5 bg-violet-50 border border-violet-100 rounded-2xl text-violet-600 animate-in fade-in">
+              <i className="fa-solid fa-microchip text-xs mt-0.5 shrink-0" />
+              <p className="text-[11px] font-medium leading-relaxed">
+                <span className="font-bold">本次使用模型：</span>{MODEL_OPTIONS.find(m => m.value === usedModel)?.label || usedModel}
               </p>
             </div>
           )}

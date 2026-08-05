@@ -1,10 +1,11 @@
 import { useState, useCallback } from 'react';
 
 export interface UseImageGenerationReturn {
-  generate: (prompt: string, aspectRatio: string, inputImageDataUrl?: string, editMode?: string) => Promise<string | null>;
+  generate: (prompt: string, aspectRatio: string, inputImageDataUrl?: string, editMode?: string, model?: string) => Promise<string | null>;
   isLoading: boolean;
   error: string | null;
   translatedPrompt: string | null;
+  usedModel: string | null;
   clearError: () => void;
 }
 
@@ -14,14 +15,16 @@ export function useImageGeneration(): UseImageGenerationReturn {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [translatedPrompt, setTranslatedPrompt] = useState<string | null>(null);
+  const [usedModel, setUsedModel] = useState<string | null>(null);
 
-  const clearError = useCallback(() => { setError(null); setTranslatedPrompt(null); }, []);
+  const clearError = useCallback(() => { setError(null); setTranslatedPrompt(null); setUsedModel(null); }, []);
 
   const generate = useCallback(async (
     prompt: string,
     aspectRatio: string,
     inputImageDataUrl?: string,
     editMode?: string,
+    model?: string,
   ): Promise<string | null> => {
     if (!prompt.trim()) {
       setError('请输入提示词');
@@ -50,12 +53,15 @@ export function useImageGeneration(): UseImageGenerationReturn {
         body.inputMimeType = inputMimeType;
         body.editMode = editMode || 'EDIT_MODE_DEFAULT';
       }
+      if (model) {
+        body.model = model;
+      }
 
       const response = await fetch(`${API_BASE}/api/generate-image`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(35000),
+        signal: AbortSignal.timeout(55000),
       });
 
       const data = await response.json();
@@ -64,10 +70,11 @@ export function useImageGeneration(): UseImageGenerationReturn {
         throw new Error(data.error || `服务器错误 (${response.status})`);
       }
 
-      const { imageBase64, mimeType = 'image/png', finalPrompt } = data;
+      const { imageBase64, mimeType = 'image/png', finalPrompt, model: responseModel } = data;
       if (!imageBase64) throw new Error('未收到图片数据，请重试');
 
       if (finalPrompt) setTranslatedPrompt(finalPrompt);
+      if (responseModel) setUsedModel(responseModel);
       return `data:${mimeType};base64,${imageBase64}`;
 
     } catch (err: unknown) {
@@ -83,5 +90,5 @@ export function useImageGeneration(): UseImageGenerationReturn {
     }
   }, []);
 
-  return { generate, isLoading, error, translatedPrompt, clearError };
+  return { generate, isLoading, error, translatedPrompt, usedModel, clearError };
 }

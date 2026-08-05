@@ -1,6 +1,0 @@
-{
-  "functions": {
-    "api/vertex.js": { "maxDuration": 30 },
-    "api/generate-image.js": { "maxDuration": 60 }
-  }
-}
