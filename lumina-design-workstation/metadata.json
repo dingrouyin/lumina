@@ -1,7 +1,0 @@
-{
-  "name": "Lumina Design Workstation",
-  "description": "An interactive AI-powered design whiteboard with real-time context-aware assistance.",
-  "requestFramePermissions": [
-    "camera"
-  ]
-}
