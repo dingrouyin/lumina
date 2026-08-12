@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 
 export interface UseImageGenerationReturn {
-  generate: (prompt: string, aspectRatio: string, inputImageDataUrl?: string, editMode?: string, model?: string) => Promise<string | null>;
+  generate: (prompt: string, aspectRatio: string, inputImageDataUrls?: string[], editMode?: string, model?: string) => Promise<string | null>;
   isLoading: boolean;
   error: string | null;
   translatedPrompt: string | null;
@@ -22,7 +22,7 @@ export function useImageGeneration(): UseImageGenerationReturn {
   const generate = useCallback(async (
     prompt: string,
     aspectRatio: string,
-    inputImageDataUrl?: string,
+    inputImageDataUrls?: string[],
     editMode?: string,
     model?: string,
   ): Promise<string | null> => {
@@ -35,22 +35,19 @@ export function useImageGeneration(): UseImageGenerationReturn {
     setError(null);
 
     try {
-      // 从 data URL 中拆出 base64 和 mimeType
-      let inputImageBase64: string | undefined;
-      let inputMimeType: string | undefined;
-      if (inputImageDataUrl) {
-        const commaIdx = inputImageDataUrl.indexOf(',');
-        if (commaIdx !== -1) {
-          inputImageBase64 = inputImageDataUrl.slice(commaIdx + 1);
-          const meta = inputImageDataUrl.slice(0, commaIdx); // e.g. "data:image/png;base64"
-          inputMimeType = meta.split(':')[1]?.split(';')[0] || 'image/png';
-        }
-      }
+      // 从每张 data URL 中拆出 base64 和 mimeType
+      const images = (inputImageDataUrls || []).map((dataUrl) => {
+        const commaIdx = dataUrl.indexOf(',');
+        if (commaIdx === -1) return null;
+        const base64 = dataUrl.slice(commaIdx + 1);
+        const meta = dataUrl.slice(0, commaIdx); // e.g. "data:image/png;base64"
+        const mimeType = meta.split(':')[1]?.split(';')[0] || 'image/png';
+        return { base64, mimeType };
+      }).filter((img): img is { base64: string; mimeType: string } => img !== null);
 
       const body: Record<string, unknown> = { prompt: prompt.trim(), aspectRatio };
-      if (inputImageBase64) {
-        body.inputImageBase64 = inputImageBase64;
-        body.inputMimeType = inputMimeType;
+      if (images.length > 0) {
+        body.images = images;
         body.editMode = editMode || 'EDIT_MODE_DEFAULT';
       }
       if (model) {

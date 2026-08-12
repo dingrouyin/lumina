@@ -153,8 +153,8 @@ const App: React.FC = () => {
 
   // --- AI 生图面板状态 ---
   const [showAIImagePanel, setShowAIImagePanel] = useState(false);
-  // 打开面板时快照选中图片 URL（防止打开时事件冒泡导致选区丢失）
-  const [aiEditImageDataUrl, setAiEditImageDataUrl] = useState<string | undefined>(undefined);
+  // 打开面板时快照选中图片 URL 列表（最多 2 张，防止打开时事件冒泡导致选区丢失）
+  const [aiEditImageDataUrls, setAiEditImageDataUrls] = useState<string[]>([]);
 
 
   // --- Tool State ---
@@ -1414,9 +1414,6 @@ const App: React.FC = () => {
     }
   };
 
-  const selectedElement = elements.find(el => el.id === selectedIds[0]) || null;
-  const selectedImageDataUrl = selectedElement?.type === 'image' ? selectedElement.content : undefined;
-
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, isTyping]);
 
   return (
@@ -1582,8 +1579,11 @@ const App: React.FC = () => {
             onPointerDown={(e) => {
               e.stopPropagation();
               if (!showAIImagePanel) {
-                const el = elementsRef.current.find(el => el.id === selectedIdsRef.current[0]);
-                setAiEditImageDataUrl(el?.type === 'image' ? el.content : undefined);
+                const selectedImages = elementsRef.current
+                  .filter(el => selectedIdsRef.current.includes(el.id) && el.type === 'image')
+                  .slice(0, 2)
+                  .map(el => el.content);
+                setAiEditImageDataUrls(selectedImages);
               }
               setShowAIImagePanel(prev => !prev);
             }}
@@ -1721,7 +1721,7 @@ const App: React.FC = () => {
           onClose={() => setShowAIImagePanel(false)}
           onInsertImage={handleInsertAIImage}
           onShowToast={handleShowToast}
-          selectedImageDataUrl={aiEditImageDataUrl}
+          selectedImageDataUrls={aiEditImageDataUrls}
         />
 
         {isResizingRight && <div className="fixed inset-0 z-50 cursor-col-resize pointer-events-auto bg-black/5" />}

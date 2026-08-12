@@ -6,7 +6,7 @@ interface AIImagePanelProps {
   onClose: () => void;
   onInsertImage: (dataUrl: string, width: number, height: number) => void;
   onShowToast: (msg: string) => void;
-  selectedImageDataUrl?: string; // 若已选中画布图片，传入其 data URL
+  selectedImageDataUrls?: string[]; // 若已选中画布图片（最多 2 张），传入其 data URL 列表
 }
 
 const ASPECT_RATIOS = [
@@ -17,8 +17,8 @@ const ASPECT_RATIOS = [
 ] as const;
 
 const MODEL_OPTIONS = [
-  { label: 'Gemini 2.5 Flash', value: 'google/gemini-2.5-flash-image', hint: '约 $0.04/张，速度快' },
-  { label: 'Seedream 4.5', value: 'bytedance-seed/seedream-4.5', hint: '效果对比备选' },
+  { label: 'Gemini 2.5 Flash', value: 'google/gemini-2.5-flash-image', hint: '约 $0.04/张，速度快，最大约1024×1024' },
+  { label: 'Seedream 4.5', value: 'bytedance-seed/seedream-4.5', hint: '效果对比备选，最大支持4K' },
 ] as const;
 
 const EDIT_MODES = [
@@ -30,16 +30,28 @@ const EDIT_MODES = [
   },
   {
     value: 'EDIT_MODE_BGSWAP',
-    label: '换背景',
+    label: '更换场景',
     icon: 'fa-image',
-    hint: '描述新背景，例如：a tropical beach with palm trees，北欧风简约办公室…',
+    hint: '描述新场景，会自动匹配光影融入主体，例如：a tropical beach with palm trees，北欧风简约办公室…',
   },
   {
     value: 'EDIT_MODE_PRODUCT_IMAGE',
-    label: '产品图',
-    icon: 'fa-box',
-    hint: '描述产品所在场景，例如：placed on a marble table with soft studio lighting…',
+    label: '产品主体',
+    icon: 'fa-cube',
+    hint: '描述想要的观察视角，用于补齐缺失机位，例如：正视图、俯视图、45度侧面、背面视角…',
   },
+] as const;
+
+// 产品主体模式的预设视角——点击后填入指令文本框，而不是直接发送
+// 参考了 Google Flow「镜头探索器」的 chip 交互思路，措辞适配我们自己的 EDIT_MODE_PRODUCT_IMAGE 模板
+const PRODUCT_ANGLE_CHIPS = [
+  { id: 'front', emoji: '🧭', label: '正视图', defaultPrompt: '正视图，镜头与产品正面水平对齐' },
+  { id: 'top', emoji: '🦅', label: '俯视图', defaultPrompt: '俯视图，从正上方垂直向下拍摄' },
+  { id: 'side', emoji: '📐', label: '侧视图', defaultPrompt: '侧视图，从产品正侧方拍摄' },
+  { id: 'back', emoji: '🔄', label: '背面视角', defaultPrompt: '背面视角，展示产品背部细节' },
+  { id: 'three-quarter', emoji: '↗️', label: '45度侧面', defaultPrompt: '45度侧前方视角，兼顾正面与侧面细节' },
+  { id: 'detail', emoji: '🔍', label: '特写细节', defaultPrompt: '极致特写，放大展示产品材质和工艺细节' },
+  { id: 'low-angle', emoji: '🐸', label: '仰视图', defaultPrompt: '仰视图，镜头从产品下方向上拍摄' },
 ] as const;
 
 const MAX_PROMPT_LENGTH = 500;
@@ -49,7 +61,7 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
   onClose,
   onInsertImage,
   onShowToast,
-  selectedImageDataUrl,
+  selectedImageDataUrls,
 }) => {
   const [prompt, setPrompt] = useState('');
   const [aspectRatio, setAspectRatio] = useState<string>('1:1');
@@ -58,7 +70,9 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { generate, isLoading, error, translatedPrompt, usedModel, clearError } = useImageGeneration();
 
-  const isEditMode = Boolean(selectedImageDataUrl);
+  const referenceImages = selectedImageDataUrls || [];
+  const isEditMode = referenceImages.length > 0;
+  const isMultiRef = referenceImages.length > 1;
 
   useEffect(() => {
     if (isOpen && textareaRef.current) {
@@ -82,7 +96,7 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
     const dataUrl = await generate(
       prompt,
       isEditMode ? '1:1' : aspectRatio,
-      isEditMode ? selectedImageDataUrl : undefined,
+      isEditMode ? referenceImages : undefined,
       isEditMode ? editMode : undefined,
       model,
     );
@@ -171,16 +185,31 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
           {/* 编辑模式：原图预览 + 编辑类型 */}
           {isEditMode && (
             <div className="space-y-3">
-              {/* 原图缩略图 */}
+              {/* 原图缩略图（支持多张，标注图1/图2以便在指令里指代） */}
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-2xl border border-gray-100">
-                <img
-                  src={selectedImageDataUrl}
-                  alt="原图"
-                  className="w-12 h-12 rounded-xl object-cover border border-gray-200 shrink-0"
-                />
+                <div className="flex gap-2 shrink-0">
+                  {referenceImages.map((url, idx) => (
+                    <div key={idx} className="relative">
+                      <img
+                        src={url}
+                        alt={`图${idx + 1}`}
+                        className="w-12 h-12 rounded-xl object-cover border border-gray-200"
+                      />
+                      {isMultiRef && (
+                        <span className="absolute -top-1.5 -left-1.5 w-4 h-4 rounded-full bg-violet-600 text-white text-[9px] font-bold flex items-center justify-center">
+                          {idx + 1}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
                 <div>
-                  <p className="text-xs font-bold text-gray-600">当前选中图片</p>
-                  <p className="text-[10px] text-gray-400 mt-0.5">AI 将在此图基础上进行修改</p>
+                  <p className="text-xs font-bold text-gray-600">
+                    {isMultiRef ? `已选中 ${referenceImages.length} 张图片` : '当前选中图片'}
+                  </p>
+                  <p className="text-[10px] text-gray-400 mt-0.5">
+                    {isMultiRef ? '在下方指令里用"图1""图2"指代对应的图，例如"把图1的产品放入图2的场景中"' : 'AI 将在此图基础上进行修改'}
+                  </p>
                 </div>
               </div>
 
@@ -205,6 +234,27 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
                   ))}
                 </div>
               </div>
+
+              {/* 产品主体模式：预设视角，点击填入指令文本框 */}
+              {editMode === 'EDIT_MODE_PRODUCT_IMAGE' && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-gray-600 uppercase tracking-wider">预设视角</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {PRODUCT_ANGLE_CHIPS.map((chip) => (
+                      <button
+                        key={chip.id}
+                        type="button"
+                        onClick={() => { setPrompt(chip.defaultPrompt); clearError(); textareaRef.current?.focus(); }}
+                        disabled={isLoading}
+                        className="flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-bold border border-gray-200 bg-gray-50 text-gray-500 hover:border-violet-300 hover:text-violet-600 transition-all disabled:opacity-40"
+                      >
+                        <span>{chip.emoji}</span>
+                        <span>{chip.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
