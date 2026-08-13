@@ -161,7 +161,7 @@ const LayerPanel: React.FC<LayerPanelProps> = ({
     const panelContent = (
         <div
             ref={panelRef}
-            className={`layer-panel-inner ${isDrawer ? 'w-fit min-w-[240px] max-w-[360px]' : 'w-fit min-w-[240px] max-w-[360px] m-4'} flex flex-col bg-white/40 ${isDrawer ? '' : 'border border-white/60 shadow-[0_16px_40px_rgba(0,0,0,0.1)] rounded-2xl'} overflow-hidden pointer-events-auto transition-shadow duration-300 hover:shadow-[0_20px_50px_rgba(0,0,0,0.15)] ${isDraggingState ? 'opacity-80 scale-[1.02] cursor-grabbing shadow-2xl ring-2 ring-violet-500/50' : ''}`}
+            className={`layer-panel-inner ${isDrawer ? 'w-fit min-w-[240px] max-w-[360px]' : 'w-fit min-w-[240px] max-w-[360px] m-4'} flex flex-col bg-white/40 dark:bg-gray-900/40 ${isDrawer ? '' : 'border border-white/60 dark:border-gray-700/60 shadow-[0_16px_40px_rgba(0,0,0,0.1)] rounded-2xl'} overflow-hidden pointer-events-auto transition-shadow duration-300 hover:shadow-[0_20px_50px_rgba(0,0,0,0.15)] ${isDraggingState ? 'opacity-80 scale-[1.02] cursor-grabbing shadow-2xl ring-2 ring-violet-500/50' : ''}`}
             style={isDrawer ? { maxHeight: '75vh' } : (isDocked && !isDraggingState ? {
                 position: 'absolute',
                 top: '50%',
@@ -194,45 +194,45 @@ const LayerPanel: React.FC<LayerPanelProps> = ({
             onKeyUp={(e) => e.stopPropagation()}
         >
             <div
-                className={`p-4 border-b border-gray-200/50 flex items-center justify-between shrink-0 bg-white/40 cursor-grab active:cursor-grabbing`}
+                className={`p-4 border-b border-gray-200/50 dark:border-gray-700/50 flex items-center justify-between shrink-0 bg-white/40 dark:bg-gray-900/40 cursor-grab active:cursor-grabbing`}
                 style={{ touchAction: 'none' }}
                 onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
                 onPointerCancel={handlePointerUp}
             >
-                <h3 className="text-xs font-black text-gray-800 uppercase tracking-widest flex items-center gap-2 select-none pointer-events-none">
-                    <i className="fa-solid fa-layer-group text-violet-500"></i>
+                <h3 className="text-xs font-black text-gray-800 dark:text-gray-100 uppercase tracking-widest flex items-center gap-2 select-none pointer-events-none">
+                    <i className="fa-solid fa-layer-group text-violet-500 dark:text-violet-400"></i>
                     图层
                 </h3>
                 <div className="flex items-center gap-2" onPointerDown={stopPropagation}>
                     {isDrawer && (
-                        <button onClick={() => onDetach?.()} className="text-gray-400 hover:text-blue-500 transition-colors pointer-events-auto p-1.5" title="自由挪动">
+                        <button onClick={() => onDetach?.()} className="text-gray-400 dark:text-gray-500 hover:text-blue-500 transition-colors pointer-events-auto p-1.5" title="自由挪动">
                             <i className="fa-solid fa-up-right-from-square text-[10px]"></i>
                         </button>
                     )}
                     {!isDrawer && (
-                        <button onClick={onDock} className="text-gray-400 hover:text-violet-500 transition-colors pointer-events-auto p-1.5" title="收纳进停靠栏">
+                        <button onClick={onDock} className="text-gray-400 dark:text-gray-500 hover:text-violet-500 transition-colors pointer-events-auto p-1.5" title="收纳进停靠栏">
                             <i className="fa-solid fa-right-to-bracket text-[10px]"></i>
                         </button>
                     )}
                     {onClose && (
-                        <button onClick={onClose} className="text-gray-400 hover:text-red-500 transition-colors pointer-events-auto p-1.5" title="收起面板">
+                        <button onClick={onClose} className="text-gray-400 dark:text-gray-500 hover:text-red-500 transition-colors pointer-events-auto p-1.5" title="收起面板">
                             <i className="fa-solid fa-xmark text-sm"></i>
                         </button>
                     )}
                     {!isDrawer && isDocked && (
-                        <button onClick={() => setIsExpanded(false)} className="text-gray-400 hover:text-violet-500 transition-colors pointer-events-auto" title="收起贴边">
+                        <button onClick={() => setIsExpanded(false)} className="text-gray-400 dark:text-gray-500 hover:text-violet-500 transition-colors pointer-events-auto" title="收起贴边">
                             <i className="fa-solid fa-chevron-right text-xs"></i>
                         </button>
                     )}
-                    {!isDrawer && <i className="fa-solid fa-up-down-left-right text-gray-400 text-[10px] pointer-events-none" title="拖拽移动面板"></i>}
+                    {!isDrawer && <i className="fa-solid fa-up-down-left-right text-gray-400 dark:text-gray-500 text-[10px] pointer-events-none" title="拖拽移动面板"></i>}
                 </div>
             </div>
 
             <div className="flex-grow overflow-y-auto p-2 space-y-1 custom-scrollbar">
                 {elements.length === 0 ? (
-                    <div className="h-20 flex flex-col items-center justify-center text-gray-400 gap-2 opacity-50">
+                    <div className="h-20 flex flex-col items-center justify-center text-gray-400 dark:text-gray-500 gap-2 opacity-50">
                         <i className="fa-solid fa-box-open text-xl"></i>
                         <span className="text-[10px] font-bold uppercase tracking-tighter">无图层数据</span>
                     </div>
@@ -243,23 +243,23 @@ const LayerPanel: React.FC<LayerPanelProps> = ({
                             <div
                                 key={el.id}
                                 className={`group flex items-center gap-3 p-2 rounded-xl transition-all duration-200 cursor-pointer border ${isSelected
-                                    ? 'bg-violet-50 border-violet-200 shadow-sm'
-                                    : 'bg-white/40 border-transparent hover:bg-violet-50/50 hover:border-violet-100'
+                                    ? 'bg-violet-50 dark:bg-violet-950/40 border-violet-200 dark:border-violet-800 shadow-sm'
+                                    : 'bg-white/40 dark:bg-gray-900/40 border-transparent hover:bg-violet-50/50 hover:border-violet-100'
                                     }`}
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     onSelectElement(el.id, e.shiftKey);
                                 }}
                             >
-                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 shadow-sm border ${isSelected ? 'bg-white border-violet-200' : 'bg-gray-50 border-gray-100'}`}>
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 shadow-sm border ${isSelected ? 'bg-white dark:bg-gray-900 border-violet-200 dark:border-violet-800' : 'bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-800'}`}>
                                     {el.type === 'image' ? (
                                         <div className="w-full h-full p-1">
                                             <img src={el.content} className="w-full h-full object-cover rounded shadow-inner" alt="" />
                                         </div>
                                     ) : el.type === 'text' ? (
-                                        <i className="fa-solid fa-font text-violet-400 text-xs"></i>
+                                        <i className="fa-solid fa-font text-violet-400 dark:text-violet-300 text-xs"></i>
                                     ) : (
-                                        <i className="fa-solid fa-pen-nib text-violet-400 text-xs"></i>
+                                        <i className="fa-solid fa-pen-nib text-violet-400 dark:text-violet-300 text-xs"></i>
                                     )}
                                 </div>
 
@@ -279,11 +279,11 @@ const LayerPanel: React.FC<LayerPanelProps> = ({
                                             onClick={(e) => e.stopPropagation()}
                                             onPointerDown={(e) => e.stopPropagation()}
                                             autoFocus
-                                            className="w-full text-[11px] font-bold text-violet-900 bg-white border border-violet-400 rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-violet-400"
+                                            className="w-full text-[11px] font-bold text-violet-900 dark:text-violet-100 bg-white dark:bg-gray-900 border border-violet-400 dark:border-violet-600 rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-violet-400"
                                         />
                                     ) : (
                                         <div
-                                            className={`text-[11px] font-bold truncate transition-colors cursor-text ${isSelected ? 'text-violet-900' : 'text-gray-700'}`}
+                                            className={`text-[11px] font-bold truncate transition-colors cursor-text ${isSelected ? 'text-violet-900 dark:text-violet-100' : 'text-gray-700 dark:text-gray-200'}`}
                                             title={`${el.name} — 双击重命名`}
                                             onDoubleClick={(e) => {
                                                 e.stopPropagation();
@@ -298,7 +298,7 @@ const LayerPanel: React.FC<LayerPanelProps> = ({
                                                 : el.name}
                                         </div>
                                     )}
-                                    <div className="text-[9px] text-gray-400 font-medium uppercase tracking-widest opacity-60">
+                                    <div className="text-[9px] text-gray-400 dark:text-gray-500 font-medium uppercase tracking-widest opacity-60">
                                         {el.type === 'image' ? '位图素材' : el.type === 'text' ? '文字内容' : '路径矢量'}
                                     </div>
                                 </div>
@@ -309,7 +309,7 @@ const LayerPanel: React.FC<LayerPanelProps> = ({
                                         title="上移图层（置于顶层方向）"
                                         className={`w-6 h-6 flex items-center justify-center rounded transition-colors ${index === 0
                                             ? 'invisible'
-                                            : 'bg-gray-50 hover:bg-violet-100 hover:text-violet-600 text-gray-400'
+                                            : 'bg-gray-50 dark:bg-gray-800 hover:bg-violet-100 hover:text-violet-600 text-gray-400 dark:text-gray-500'
                                             }`}
                                     >
                                         <i className="fa-solid fa-arrow-up text-[10px]"></i>
@@ -319,7 +319,7 @@ const LayerPanel: React.FC<LayerPanelProps> = ({
                                         title="下移图层（置于底层方向）"
                                         className={`w-6 h-6 flex items-center justify-center rounded transition-colors ${index === elements.length - 1
                                             ? 'invisible'
-                                            : 'bg-gray-50 hover:bg-violet-100 hover:text-violet-600 text-gray-400'
+                                            : 'bg-gray-50 dark:bg-gray-800 hover:bg-violet-100 hover:text-violet-600 text-gray-400 dark:text-gray-500'
                                             }`}
                                     >
                                         <i className="fa-solid fa-arrow-down text-[10px]"></i>
@@ -328,7 +328,7 @@ const LayerPanel: React.FC<LayerPanelProps> = ({
                                         <button
                                             onClick={(e) => { e.stopPropagation(); onDeleteElement(el.id); }}
                                             title="删除图层"
-                                            className="w-6 h-6 flex items-center justify-center rounded transition-colors bg-gray-50 hover:bg-red-100 hover:text-red-500 text-gray-400"
+                                            className="w-6 h-6 flex items-center justify-center rounded transition-colors bg-gray-50 dark:bg-gray-800 hover:bg-red-100 hover:text-red-500 text-gray-400 dark:text-gray-500"
                                         >
                                             <i className="fa-solid fa-trash text-[10px]"></i>
                                         </button>
@@ -348,9 +348,9 @@ const LayerPanel: React.FC<LayerPanelProps> = ({
             {/* When dragging to dock, show a magnet placeholder hint 
                 if close to the dock trigger area */}
             {!isDrawer && isDraggingState && isDocked && (
-                <div className="fixed top-1/2 right-[72px] -translate-y-1/2 w-[260px] h-[400px] border-2 border-violet-500/50 bg-violet-100/20 rounded-2xl shadow-[0_0_30px_rgba(139,92,246,0.2)] pointer-events-none z-[-1] transition-all duration-300 backdrop-blur-sm">
+                <div className="fixed top-1/2 right-[72px] -translate-y-1/2 w-[260px] h-[400px] border-2 border-violet-500/50 dark:border-violet-500/50 bg-violet-100/20 dark:bg-violet-900/20 rounded-2xl shadow-[0_0_30px_rgba(139,92,246,0.2)] pointer-events-none z-[-1] transition-all duration-300 backdrop-blur-sm">
                     <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="bg-violet-600 text-white text-xs font-bold px-4 py-2 rounded-full uppercase tracking-widest animate-bounce shadow-lg">
+                        <div className="bg-violet-600 dark:bg-violet-600 text-white text-xs font-bold px-4 py-2 rounded-full uppercase tracking-widest animate-bounce shadow-lg">
                             松开以停靠 <i className="fa-solid fa-magnet ml-1"></i>
                         </div>
                     </div>

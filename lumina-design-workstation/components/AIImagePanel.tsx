@@ -157,27 +157,27 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
       />
 
       <div
-        className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[9999] w-[440px] bg-white/95 backdrop-blur-2xl rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.15)] border border-white/60 overflow-hidden animate-in slide-in-from-bottom-4 fade-in duration-200"
+        className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[9999] w-[440px] bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.15)] border border-white/60 dark:border-gray-700/60 overflow-hidden animate-in slide-in-from-bottom-4 fade-in duration-200"
         onPointerDown={(e) => e.stopPropagation()}
       >
         {/* 标题栏 */}
-        <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-gray-100">
+        <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shadow-md shadow-violet-200">
               <i className={`fa-solid ${isEditMode ? 'fa-pen-to-square' : 'fa-wand-magic-sparkles'} text-white text-xs`} />
             </div>
             <div>
-              <h3 className="text-sm font-black text-gray-800 tracking-tight">
+              <h3 className="text-sm font-black text-gray-800 dark:text-gray-100 tracking-tight">
                 {isEditMode ? 'AI 改图' : 'AI 生图'}
               </h3>
-              <p className="text-[10px] text-gray-400 font-medium">
+              <p className="text-[10px] text-gray-400 dark:text-gray-500 font-medium">
                 Powered by {MODEL_OPTIONS.find(m => m.value === model)?.label || model}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+            className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 dark:text-gray-500 hover:text-gray-600 transition-colors"
           >
             <i className="fa-solid fa-xmark text-sm" />
           </button>
@@ -186,7 +186,7 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
         <div className="p-5 space-y-4">
           {/* 模型选择 */}
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-gray-600 uppercase tracking-wider">模型</label>
+            <label className="text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">模型</label>
             <div className="flex flex-wrap gap-2">
               {MODEL_OPTIONS.map((m) => (
                 <button
@@ -197,8 +197,8 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
                   title={m.hint}
                   className={`py-2 px-2.5 rounded-xl text-xs font-bold transition-all border ${
                     model === m.value
-                      ? 'bg-violet-600 border-violet-600 text-white shadow-md shadow-violet-200'
-                      : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-violet-300 hover:text-violet-600'
+                      ? 'bg-violet-600 dark:bg-violet-600 border-violet-600 dark:border-violet-500 text-white shadow-md shadow-violet-200'
+                      : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-violet-300 hover:text-violet-600'
                   }`}
                 >
                   {m.label}
@@ -210,7 +210,7 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
           {/* 分辨率选择——只有支持该参数的模型才显示（目前仅 Seedream 4.5） */}
           {resolutionOptions && (
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-gray-600 uppercase tracking-wider">分辨率</label>
+              <label className="text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">分辨率</label>
               <div className="flex gap-2">
                 {resolutionOptions.map((r) => (
                   <button
@@ -220,8 +220,8 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
                     disabled={isLoading}
                     className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all border ${
                       resolution === r
-                        ? 'bg-violet-600 border-violet-600 text-white shadow-md shadow-violet-200'
-                        : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-violet-300 hover:text-violet-600'
+                        ? 'bg-violet-600 dark:bg-violet-600 border-violet-600 dark:border-violet-500 text-white shadow-md shadow-violet-200'
+                        : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-violet-300 hover:text-violet-600'
                     }`}
                   >
                     {r}
@@ -235,17 +235,17 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
           {isEditMode && (
             <div className="space-y-3">
               {/* 原图缩略图（支持多张，标注图1/图2以便在指令里指代） */}
-              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-2xl border border-gray-100">
+              <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-800">
                 <div className="flex gap-2 shrink-0">
                   {referenceImages.map((url, idx) => (
                     <div key={idx} className="relative">
                       <img
                         src={url}
                         alt={`图${idx + 1}`}
-                        className="w-12 h-12 rounded-xl object-cover border border-gray-200"
+                        className="w-12 h-12 rounded-xl object-cover border border-gray-200 dark:border-gray-700"
                       />
                       {isMultiRef && (
-                        <span className="absolute -top-1.5 -left-1.5 w-4 h-4 rounded-full bg-violet-600 text-white text-[9px] font-bold flex items-center justify-center">
+                        <span className="absolute -top-1.5 -left-1.5 w-4 h-4 rounded-full bg-violet-600 dark:bg-violet-600 text-white text-[9px] font-bold flex items-center justify-center">
                           {idx + 1}
                         </span>
                       )}
@@ -253,10 +253,10 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
                   ))}
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-gray-600">
+                  <p className="text-xs font-bold text-gray-600 dark:text-gray-300">
                     {isMultiRef ? `已选中 ${referenceImages.length} 张图片` : '当前选中图片'}
                   </p>
-                  <p className="text-[10px] text-gray-400 mt-0.5">
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
                     {isMultiRef ? '在下方指令里用"图1""图2"指代对应的图，例如"把图1的产品放入图2的场景中"' : 'AI 将在此图基础上进行修改'}
                   </p>
                 </div>
@@ -264,7 +264,7 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
 
               {/* 编辑类型选择 */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-600 uppercase tracking-wider">编辑方式</label>
+                <label className="text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">编辑方式</label>
                 <div className="flex gap-2">
                   {EDIT_MODES.map((m) => (
                     <button
@@ -273,8 +273,8 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
                       disabled={isLoading}
                       className={`flex-1 py-2 px-1 rounded-xl text-[11px] font-bold transition-all border flex flex-col items-center gap-1 ${
                         editMode === m.value
-                          ? 'bg-violet-600 border-violet-600 text-white shadow-md shadow-violet-200'
-                          : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-violet-300 hover:text-violet-600'
+                          ? 'bg-violet-600 dark:bg-violet-600 border-violet-600 dark:border-violet-500 text-white shadow-md shadow-violet-200'
+                          : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-violet-300 hover:text-violet-600'
                       }`}
                     >
                       <i className={`fa-solid ${m.icon} text-xs`} />
@@ -287,7 +287,7 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
               {/* 产品主体模式：预设视角，点击填入指令文本框 */}
               {editMode === 'EDIT_MODE_PRODUCT_IMAGE' && (
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-gray-600 uppercase tracking-wider">预设视角</label>
+                  <label className="text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">预设视角</label>
                   <div className="flex flex-wrap gap-1.5">
                     {PRODUCT_ANGLE_CHIPS.map((chip) => (
                       <button
@@ -295,7 +295,7 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
                         type="button"
                         onClick={() => { setPrompt(chip.defaultPrompt); clearError(); textareaRef.current?.focus(); }}
                         disabled={isLoading}
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-bold border border-gray-200 bg-gray-50 text-gray-500 hover:border-violet-300 hover:text-violet-600 transition-all disabled:opacity-40"
+                        className="flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-bold border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:border-violet-300 hover:text-violet-600 transition-all disabled:opacity-40"
                       >
                         <span>{chip.emoji}</span>
                         <span>{chip.label}</span>
@@ -310,10 +310,10 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
           {/* Prompt 输入 */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-gray-600 uppercase tracking-wider">
+              <label className="text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                 {isEditMode ? '修改指令' : 'Prompt 描述'}
               </label>
-              <span className={`text-[10px] font-mono font-bold transition-colors ${prompt.length > MAX_PROMPT_LENGTH * 0.9 ? 'text-orange-500' : 'text-gray-300'}`}>
+              <span className={`text-[10px] font-mono font-bold transition-colors ${prompt.length > MAX_PROMPT_LENGTH * 0.9 ? 'text-orange-500' : 'text-gray-300 dark:text-gray-600'}`}>
                 {prompt.length}/{MAX_PROMPT_LENGTH}
               </span>
             </div>
@@ -332,7 +332,7 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
                   ? activeEditMode.hint
                   : '描述你想生成的图片，例如：a serene mountain landscape at golden hour, photorealistic, 8K…'
               }
-              className="w-full h-[90px] resize-none bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3 text-sm text-gray-700 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-violet-400/30 focus:border-violet-400 transition-all font-medium leading-relaxed"
+              className="w-full h-[90px] resize-none bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl px-4 py-3 text-sm text-gray-700 dark:text-gray-200 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-violet-400/30 focus:border-violet-400 transition-all font-medium leading-relaxed"
               disabled={isLoading}
             />
           </div>
@@ -340,7 +340,7 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
           {/* 文生图：比例选择 */}
           {!isEditMode && (
             <div className="space-y-2">
-              <label className="text-xs font-bold text-gray-600 uppercase tracking-wider">图片比例</label>
+              <label className="text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">图片比例</label>
               <div className="flex gap-2">
                 {ASPECT_RATIOS.map((r) => (
                   <button
@@ -349,8 +349,8 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
                     disabled={isLoading}
                     className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all border ${
                       aspectRatio === r.value
-                        ? 'bg-violet-600 border-violet-600 text-white shadow-md shadow-violet-200'
-                        : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-violet-300 hover:text-violet-600'
+                        ? 'bg-violet-600 dark:bg-violet-600 border-violet-600 dark:border-violet-500 text-white shadow-md shadow-violet-200'
+                        : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-violet-300 hover:text-violet-600'
                     }`}
                   >
                     {r.label}
@@ -362,23 +362,23 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
 
           {/* 预览/加载区 */}
           <div
-            className="w-full rounded-2xl overflow-hidden bg-gray-50 border border-gray-100 flex items-center justify-center"
+            className="w-full rounded-2xl overflow-hidden bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-800 flex items-center justify-center"
             style={isEditMode ? { height: 80 } : { aspectRatio: `${selectedRatio.w / selectedRatio.h}`, maxHeight: 160 }}
           >
             {isLoading ? (
-              <div className="w-full h-full relative overflow-hidden bg-gray-100">
+              <div className="w-full h-full relative overflow-hidden bg-gray-100 dark:bg-gray-800">
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/60 to-transparent -translate-x-full animate-[shimmer_1.5s_infinite]" />
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
                   <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-violet-400 to-fuchsia-400 flex items-center justify-center shadow-lg animate-pulse">
                     <i className="fa-solid fa-paintbrush text-white text-xs" />
                   </div>
-                  <p className="text-xs font-bold text-gray-400 animate-pulse">
+                  <p className="text-xs font-bold text-gray-400 dark:text-gray-500 animate-pulse">
                     {(MODEL_OPTIONS.find(m => m.value === model)?.label || model)}{isEditMode ? ' 正在修图…' : ' 正在生图…'}
                   </p>
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col items-center gap-1.5 py-4 text-gray-300">
+              <div className="flex flex-col items-center gap-1.5 py-4 text-gray-300 dark:text-gray-600">
                 <i className="fa-regular fa-image text-xl" />
                 <p className="text-[11px] font-medium">
                   {isEditMode ? '修改结果将插入画布' : '生成预览将在此显示'}
@@ -389,7 +389,7 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
 
           {/* 翻译提示（中文 prompt 时显示实际发给模型的英文） */}
           {translatedPrompt && !isLoading && (
-            <div className="flex items-start gap-2 px-3 py-2.5 bg-blue-50 border border-blue-100 rounded-2xl text-blue-600 animate-in fade-in">
+            <div className="flex items-start gap-2 px-3 py-2.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900/50 rounded-2xl text-blue-600 dark:text-blue-400 animate-in fade-in">
               <i className="fa-solid fa-language text-xs mt-0.5 shrink-0" />
               <p className="text-[11px] font-medium leading-relaxed">
                 <span className="font-bold">已翻译为：</span>{translatedPrompt}
@@ -399,7 +399,7 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
 
           {/* 实际使用的模型（确认调用的是哪个） */}
           {usedModel && !isLoading && !error && (
-            <div className="flex items-start gap-2 px-3 py-2.5 bg-violet-50 border border-violet-100 rounded-2xl text-violet-600 animate-in fade-in">
+            <div className="flex items-start gap-2 px-3 py-2.5 bg-violet-50 dark:bg-violet-950/40 border border-violet-100 dark:border-violet-900/50 rounded-2xl text-violet-600 dark:text-violet-400 animate-in fade-in">
               <i className="fa-solid fa-microchip text-xs mt-0.5 shrink-0" />
               <p className="text-[11px] font-medium leading-relaxed">
                 <span className="font-bold">本次使用模型：</span>{MODEL_OPTIONS.find(m => m.value === usedModel)?.label || usedModel}
@@ -409,7 +409,7 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
 
           {/* 错误提示 */}
           {error && (
-            <div className="flex items-start gap-2.5 px-4 py-3 bg-red-50 border border-red-100 rounded-2xl text-red-600 animate-in fade-in slide-in-from-top-1">
+            <div className="flex items-start gap-2.5 px-4 py-3 bg-red-50 dark:bg-red-950/40 border border-red-100 dark:border-red-900/50 rounded-2xl text-red-600 dark:text-red-400 animate-in fade-in slide-in-from-top-1">
               <i className="fa-solid fa-circle-exclamation text-sm mt-0.5 shrink-0" />
               <p className="text-xs font-medium leading-relaxed">{error}</p>
             </div>
@@ -421,7 +421,7 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
             disabled={!prompt.trim() || isLoading}
             className={`w-full py-3.5 rounded-2xl font-black text-sm tracking-tight transition-all ${
               !prompt.trim() || isLoading
-                ? 'bg-gray-100 text-gray-300 cursor-not-allowed'
+                ? 'bg-gray-100 dark:bg-gray-800 text-gray-300 dark:text-gray-600 cursor-not-allowed'
                 : 'bg-gradient-to-r from-violet-600 to-fuchsia-500 text-white shadow-lg shadow-violet-200 hover:shadow-xl hover:shadow-violet-300 hover:scale-[1.01] active:scale-[0.99]'
             }`}
           >

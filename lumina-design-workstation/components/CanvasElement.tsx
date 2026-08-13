@@ -130,22 +130,22 @@ const CanvasElementComp: React.FC<Props> = React.memo(({
       <div
         onPointerDown={(e) => handleResizePointerDown(e, 'nw')}
         onPointerUp={handlePointerUp}
-        className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-violet-500 rounded-sm cursor-nwse-resize z-[100] hover:scale-125 transition-transform resize-handle"
+        className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-white dark:bg-gray-900 border-2 border-violet-500 dark:border-violet-500 rounded-sm cursor-nwse-resize z-[100] hover:scale-125 transition-transform resize-handle"
       />
       <div
         onPointerDown={(e) => handleResizePointerDown(e, 'ne')}
         onPointerUp={handlePointerUp}
-        className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-white border-2 border-violet-500 rounded-sm cursor-nesw-resize z-[100] hover:scale-125 transition-transform resize-handle"
+        className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-white dark:bg-gray-900 border-2 border-violet-500 dark:border-violet-500 rounded-sm cursor-nesw-resize z-[100] hover:scale-125 transition-transform resize-handle"
       />
       <div
         onPointerDown={(e) => handleResizePointerDown(e, 'sw')}
         onPointerUp={handlePointerUp}
-        className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-violet-500 rounded-sm cursor-nesw-resize z-[100] hover:scale-125 transition-transform resize-handle"
+        className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-white dark:bg-gray-900 border-2 border-violet-500 dark:border-violet-500 rounded-sm cursor-nesw-resize z-[100] hover:scale-125 transition-transform resize-handle"
       />
       <div
         onPointerDown={(e) => handleResizePointerDown(e, 'se')}
         onPointerUp={handlePointerUp}
-        className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-white border-2 border-violet-500 rounded-sm cursor-nwse-resize z-[100] hover:scale-125 transition-transform resize-handle"
+        className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-white dark:bg-gray-900 border-2 border-violet-500 dark:border-violet-500 rounded-sm cursor-nwse-resize z-[100] hover:scale-125 transition-transform resize-handle"
       />
     </div>
   );
@@ -226,7 +226,7 @@ const CanvasElementComp: React.FC<Props> = React.memo(({
           )}
         </svg>
         {isSelected && (
-          <div className="absolute inset-0 border-2 border-violet-500 pointer-events-none rounded-sm border-dashed opacity-50 export-ignore" />
+          <div className="absolute inset-0 border-2 border-violet-500 dark:border-violet-500 pointer-events-none rounded-sm border-dashed opacity-50 export-ignore" />
         )}
         {resizeHandles}
       </div>
@@ -257,7 +257,7 @@ const CanvasElementComp: React.FC<Props> = React.memo(({
         <img
           src={element.content}
           alt={element.name}
-          className="w-full h-full pointer-events-none block rounded-sm object-contain bg-gray-50/50"
+          className="w-full h-full pointer-events-none block rounded-sm object-contain bg-gray-50/50 dark:bg-gray-800/50"
         />
       ) : (
         <div className="w-full h-full bg-transparent overflow-hidden">
@@ -298,7 +298,7 @@ const CanvasElementComp: React.FC<Props> = React.memo(({
       )}
 
       {isSelected && !isEditing && (
-        <div className={`absolute ${element.y < 30 ? 'top-1 left-1 rounded-sm' : '-top-6 left-0 rounded-t-sm'} bg-violet-600 text-white text-[10px] px-2 py-0.5 font-bold uppercase tracking-tighter shadow-sm pointer-events-none export-ignore`}>
+        <div className={`absolute ${element.y < 30 ? 'top-1 left-1 rounded-sm' : '-top-6 left-0 rounded-t-sm'} bg-violet-600 dark:bg-violet-600 text-white text-[10px] px-2 py-0.5 font-bold uppercase tracking-tighter shadow-sm pointer-events-none export-ignore`}>
           {element.type === 'image' ? '图片' : '文本'}
         </div>
       )}
@@ -306,11 +306,11 @@ const CanvasElementComp: React.FC<Props> = React.memo(({
       {resizeHandles}
 
       {isSelected && !isEditing && (
-        <div className="absolute inset-0 pointer-events-none border-2 border-violet-500 rounded-sm export-ignore shadow-[inset_0_0_0_1px_rgba(255,255,255,0.5)]" />
+        <div className="absolute inset-0 pointer-events-none border-2 border-violet-500 dark:border-violet-500 rounded-sm export-ignore shadow-[inset_0_0_0_1px_rgba(255,255,255,0.5)]" />
       )}
 
       {!isSelected && !isEditing && !isDrawingMode && (
-        <div className="absolute inset-0 pointer-events-none border border-violet-400 opacity-0 group-hover:opacity-40 rounded-sm export-ignore" />
+        <div className="absolute inset-0 pointer-events-none border border-violet-400 dark:border-violet-600 opacity-0 group-hover:opacity-40 rounded-sm export-ignore" />
       )}
     </div>
   );

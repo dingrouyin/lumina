@@ -11,7 +11,7 @@ import ReactMarkdown from 'react-markdown';
 
 const MAX_RIGHT_WIDTH = 600;
 const MIN_ELEMENT_SIZE = 20;
-const SNAP_THRESHOLD = 5;
+const SNAP_THRESHOLD = 8; // screen px；比较时会按当前 scale 换算成画布坐标，保证缩放后手感一致
 const STORAGE_KEY = 'lumina-canvas-data';
 const MIN_RIGHT_WIDTH = 250;
 
@@ -48,6 +48,19 @@ const App: React.FC = () => {
       return [];
     }
   });
+
+  // --- 主题（暗夜皮肤）---
+  // 初始值直接读 <html> 的 class，因为 index.html 里的内联脚本已经在 React 挂载前根据
+  // localStorage/系统偏好设置好了，这里只是让 React state 和它保持同步，不重复判断一遍
+  const [isDarkMode, setIsDarkMode] = useState(() => document.documentElement.classList.contains('dark'));
+  const toggleTheme = useCallback(() => {
+    setIsDarkMode(prev => {
+      const next = !prev;
+      document.documentElement.classList.toggle('dark', next);
+      localStorage.setItem('lumina-theme', next ? 'dark' : 'light');
+      return next;
+    });
+  }, []);
 
   // --- Active Color (must be declared before Undo/Redo which references it) ---
   const [activeColor, setActiveColor] = useState('#000000');
@@ -590,13 +603,17 @@ const App: React.FC = () => {
         let snapX: number | null = null;
         let snapY: number | null = null;
 
+        // 阈值按当前缩放换算成画布坐标——不然缩小画布看时，同样 5px 的画布容差
+        // 对应的屏幕距离更小，加上 rAF 节流导致单帧鼠标位移经常超过这个窗口，参考线基本触发不了
+        const snapThresholdCanvas = SNAP_THRESHOLD / scale;
+
         otherElements.forEach(other => {
           const oh = other.height || (other.type === 'image' ? 300 : 180);
           const oMinX = other.x, oMaxX = other.x + other.width, oCenterX = other.x + other.width / 2;
           const oMinY = other.y, oMaxY = other.y + oh, oCenterY = other.y + oh / 2;
 
           const checkSnapX = (targetVal: number, anchorVal: number, offsetVal: number) => {
-            if (Math.abs(targetVal - anchorVal) < SNAP_THRESHOLD) {
+            if (Math.abs(targetVal - anchorVal) < snapThresholdCanvas) {
               snapX = anchorVal - offsetVal;
               newGuides.push({ type: 'vertical', pos: anchorVal });
             }
@@ -607,7 +624,7 @@ const App: React.FC = () => {
             checkSnapX(targetCenterX, oCenterX, selWidth / 2);
           }
           const checkSnapY = (targetVal: number, anchorVal: number, offsetVal: number) => {
-            if (Math.abs(targetVal - anchorVal) < SNAP_THRESHOLD) {
+            if (Math.abs(targetVal - anchorVal) < snapThresholdCanvas) {
               snapY = anchorVal - offsetVal;
               newGuides.push({ type: 'horizontal', pos: anchorVal });
             }
@@ -1426,15 +1443,15 @@ const App: React.FC = () => {
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, isTyping]);
 
   return (
-    <div className="h-screen w-screen flex overflow-hidden bg-gray-50 text-gray-800 font-sans selection:bg-violet-200"
+    <div className="h-screen w-screen flex overflow-hidden bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-100 font-sans selection:bg-violet-200"
       onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsExternalDragging(true); }}
       onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsExternalDragging(false); }}
       onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setIsExternalDragging(false); processFiles(Array.from(e.dataTransfer.files), e.clientX, e.clientY); }}
     >
       {/* Toast Notification */}
       {toastMsg && (
-        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[15000] bg-gray-800 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-2 animate-in slide-in-from-top-4 fade-in">
-          <i className="fa-solid fa-circle-check text-green-400"></i>
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[15000] bg-gray-800 dark:bg-gray-700 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-2 animate-in slide-in-from-top-4 fade-in">
+          <i className="fa-solid fa-circle-check text-green-400 dark:text-green-400"></i>
           <span className="text-sm font-bold">{toastMsg}</span>
         </div>
       )}
@@ -1442,26 +1459,26 @@ const App: React.FC = () => {
       {/* Alignment Toolbar Header */}
       {selectedIds.length >= 2 && (
         <div
-          className="absolute top-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-1.5 px-4 py-2 bg-white/80 backdrop-blur-xl border border-gray-200 shadow-xl rounded-2xl animate-in slide-in-from-top-4 fade-in cursor-default"
+          className="absolute top-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-1.5 px-4 py-2 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border border-gray-200 dark:border-gray-700 shadow-xl rounded-2xl animate-in slide-in-from-top-4 fade-in cursor-default"
           onPointerDown={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center gap-1 pr-3 border-r border-gray-200">
-            <button title="左对齐" onPointerDown={(e) => { e.stopPropagation(); handleAlign('left'); }} className="w-8 h-8 flex items-center justify-center text-gray-600 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"><i className="fa-solid fa-align-left text-sm pointer-events-none"></i></button>
-            <button title="水平居中" onPointerDown={(e) => { e.stopPropagation(); handleAlign('center-h'); }} className="w-8 h-8 flex items-center justify-center text-gray-600 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"><i className="fa-solid fa-align-center text-sm pointer-events-none"></i></button>
-            <button title="右对齐" onPointerDown={(e) => { e.stopPropagation(); handleAlign('right'); }} className="w-8 h-8 flex items-center justify-center text-gray-600 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"><i className="fa-solid fa-align-right text-sm pointer-events-none"></i></button>
+          <div className="flex items-center gap-1 pr-3 border-r border-gray-200 dark:border-gray-700">
+            <button title="左对齐" onPointerDown={(e) => { e.stopPropagation(); handleAlign('left'); }} className="w-8 h-8 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"><i className="fa-solid fa-align-left text-sm pointer-events-none"></i></button>
+            <button title="水平居中" onPointerDown={(e) => { e.stopPropagation(); handleAlign('center-h'); }} className="w-8 h-8 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"><i className="fa-solid fa-align-center text-sm pointer-events-none"></i></button>
+            <button title="右对齐" onPointerDown={(e) => { e.stopPropagation(); handleAlign('right'); }} className="w-8 h-8 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"><i className="fa-solid fa-align-right text-sm pointer-events-none"></i></button>
           </div>
-          <div className="flex items-center gap-1 px-3 border-r border-gray-200">
-            <button title="顶对齐" onPointerDown={(e) => { e.stopPropagation(); handleAlign('top'); }} className="w-8 h-8 flex items-center justify-center text-gray-600 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors -rotate-90"><i className="fa-solid fa-align-right text-sm pointer-events-none"></i></button>
-            <button title="垂直居中" onPointerDown={(e) => { e.stopPropagation(); handleAlign('center-v'); }} className="w-8 h-8 flex items-center justify-center text-gray-600 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"><i className="fa-solid fa-align-center text-sm rotate-90 pointer-events-none"></i></button>
-            <button title="底对齐" onPointerDown={(e) => { e.stopPropagation(); handleAlign('bottom'); }} className="w-8 h-8 flex items-center justify-center text-gray-600 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors -rotate-90"><i className="fa-solid fa-align-left text-sm pointer-events-none"></i></button>
+          <div className="flex items-center gap-1 px-3 border-r border-gray-200 dark:border-gray-700">
+            <button title="顶对齐" onPointerDown={(e) => { e.stopPropagation(); handleAlign('top'); }} className="w-8 h-8 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors -rotate-90"><i className="fa-solid fa-align-right text-sm pointer-events-none"></i></button>
+            <button title="垂直居中" onPointerDown={(e) => { e.stopPropagation(); handleAlign('center-v'); }} className="w-8 h-8 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"><i className="fa-solid fa-align-center text-sm rotate-90 pointer-events-none"></i></button>
+            <button title="底对齐" onPointerDown={(e) => { e.stopPropagation(); handleAlign('bottom'); }} className="w-8 h-8 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors -rotate-90"><i className="fa-solid fa-align-left text-sm pointer-events-none"></i></button>
           </div>
           {selectedIds.length >= 3 && (
-            <div className="flex items-center gap-1 px-3 border-r border-gray-200">
+            <div className="flex items-center gap-1 px-3 border-r border-gray-200 dark:border-gray-700">
               {/* 水平等间距分布 - 内联 SVG（FA Pro 图标不可用，用 SVG 替代） */}
               <button
                 title="水平等间距分布"
                 onPointerDown={(e) => { e.stopPropagation(); handleAlign('distribute-h'); }}
-                className="flex items-center gap-1 px-2 h-8 text-gray-600 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors text-[11px] font-bold"
+                className="flex items-center gap-1 px-2 h-8 text-gray-600 dark:text-gray-300 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors text-[11px] font-bold"
               >
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" className="pointer-events-none shrink-0">
                   <rect x="0.5" y="1" width="2" height="12" rx="1"/>
@@ -1476,7 +1493,7 @@ const App: React.FC = () => {
               <button
                 title="垂直等间距分布"
                 onPointerDown={(e) => { e.stopPropagation(); handleAlign('distribute-v'); }}
-                className="flex items-center gap-1 px-2 h-8 text-gray-600 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors text-[11px] font-bold"
+                className="flex items-center gap-1 px-2 h-8 text-gray-600 dark:text-gray-300 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors text-[11px] font-bold"
               >
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" className="pointer-events-none shrink-0">
                   <rect x="1" y="0.5" width="12" height="2" rx="1"/>
@@ -1490,7 +1507,7 @@ const App: React.FC = () => {
             </div>
           )}
           <div className="pl-1">
-            <span className="text-xs font-black text-violet-600 bg-violet-50 px-2 py-0.5 rounded-md">
+            <span className="text-xs font-black text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/40 px-2 py-0.5 rounded-md">
               已选中 {selectedIds.length} 项
             </span>
           </div>
@@ -1562,23 +1579,23 @@ const App: React.FC = () => {
           {/* Normal Multiple Selection Box Visual */}
           {selectionBox && (
             <div
-              className="absolute border border-violet-500 bg-violet-100 bg-opacity-30 pointer-events-none z-[10000]"
+              className="absolute border border-violet-500 dark:border-violet-500 bg-violet-100 dark:bg-violet-900/40 bg-opacity-30 pointer-events-none z-[10000]"
               style={{ left: selectionBox.x, top: selectionBox.y, width: selectionBox.width, height: selectionBox.height }}
             />
           )}
 
-          {guides.map((guide, i) => <div key={i} className="absolute border-red-500 border-dashed pointer-events-none z-[10001] alignment-guide" style={{ top: guide.type === 'horizontal' ? guide.pos : 0, left: guide.type === 'vertical' ? guide.pos : 0, width: guide.type === 'horizontal' ? '10000px' : '1px', height: guide.type === 'vertical' ? '10000px' : '1px', borderWidth: guide.type === 'horizontal' ? '1px 0 0 0' : '0 0 0 1px' }} />)}
+          {guides.map((guide, i) => <div key={i} className="absolute border-red-500 dark:border-red-500 border-dashed pointer-events-none z-[10001] alignment-guide" style={{ top: guide.type === 'horizontal' ? guide.pos : 0, left: guide.type === 'vertical' ? guide.pos : 0, width: guide.type === 'horizontal' ? '10000px' : '1px', height: guide.type === 'vertical' ? '10000px' : '1px', borderWidth: guide.type === 'horizontal' ? '1px 0 0 0' : '0 0 0 1px' }} />)}
         </div>
 
         {/* Floating Toolbar Glassmorphism */}
         {/* Bug #11: flex-nowrap 防止画笔模式展开时工具栏按钮重叠 */}
         {/* Bug #1: file input 放在工具栏外部，完全独立于按钮层级 */}
         <input type="file" multiple ref={fileInputRef} className="hidden" accept="image/*" onChange={handleUpload} />
-        <div className="floating-toolbar absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center flex-nowrap bg-white/70 backdrop-blur-xl border border-white/60 shadow-[0_8px_32px_rgba(0,0,0,0.08)] rounded-full px-4 py-3 gap-3 z-30 pointer-events-auto transition-transform hover:scale-[1.02]" onPointerDown={(e) => e.stopPropagation()}>
-          <button title="导入图片" onPointerDown={(e) => { e.stopPropagation(); setTimeout(() => fileInputRef.current?.click(), 0); }} className="w-10 h-10 flex items-center justify-center bg-violet-600 hover:bg-violet-700 text-white rounded-full cursor-pointer transition-all shadow-md active:scale-95 shrink-0">
+        <div className="floating-toolbar absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center flex-nowrap bg-white/70 dark:bg-gray-900/70 backdrop-blur-xl border border-white/60 dark:border-gray-700/60 shadow-[0_8px_32px_rgba(0,0,0,0.08)] rounded-full px-4 py-3 gap-3 z-30 pointer-events-auto transition-transform hover:scale-[1.02]" onPointerDown={(e) => e.stopPropagation()}>
+          <button title="导入图片" onPointerDown={(e) => { e.stopPropagation(); setTimeout(() => fileInputRef.current?.click(), 0); }} className="w-10 h-10 flex items-center justify-center bg-violet-600 dark:bg-violet-600 hover:bg-violet-700 text-white rounded-full cursor-pointer transition-all shadow-md active:scale-95 shrink-0">
             <i className="fa-solid fa-image text-sm"></i>
           </button>
-          <button title="输入文本" onPointerDown={(e) => { e.stopPropagation(); addTextCard(); }} className="w-10 h-10 flex items-center justify-center bg-white border border-gray-200 hover:border-violet-300 hover:text-violet-600 text-gray-700 rounded-full cursor-pointer transition-all shadow-sm active:scale-95 shrink-0">
+          <button title="输入文本" onPointerDown={(e) => { e.stopPropagation(); addTextCard(); }} className="w-10 h-10 flex items-center justify-center bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 hover:border-violet-300 hover:text-violet-600 text-gray-700 dark:text-gray-200 rounded-full cursor-pointer transition-all shadow-sm active:scale-95 shrink-0">
             <i className="fa-solid fa-t text-sm"></i>
           </button>
 
@@ -1599,7 +1616,7 @@ const App: React.FC = () => {
             className={`w-10 h-10 flex items-center justify-center rounded-full cursor-pointer transition-all shadow-sm active:scale-95 shrink-0 border ${
               showAIImagePanel
                 ? 'bg-gradient-to-br from-violet-600 to-fuchsia-500 border-transparent text-white shadow-md shadow-violet-300'
-                : 'bg-white border-gray-200 hover:border-violet-300 hover:text-violet-600 text-gray-700'
+                : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 hover:border-violet-300 hover:text-violet-600 text-gray-700 dark:text-gray-200'
             }`}
           >
             <i className="fa-solid fa-wand-magic-sparkles text-sm" />
@@ -1607,7 +1624,7 @@ const App: React.FC = () => {
 
           <button
             type="button"
-            className="relative w-10 h-10 shrink-0 flex items-center justify-center bg-white border border-gray-200 rounded-full shadow-sm hover:border-violet-300 cursor-pointer"
+            className="relative w-10 h-10 shrink-0 flex items-center justify-center bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-full shadow-sm hover:border-violet-300 cursor-pointer"
             title="全局颜色拾取器"
             onClick={(e) => {
               e.stopPropagation();
@@ -1617,7 +1634,7 @@ const App: React.FC = () => {
             <div className="w-5 h-5 rounded-full shadow-inner border border-black/10 pointer-events-none" style={{ backgroundColor: activeColor }}></div>
           </button>
 
-          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/50 rounded-full border border-white/40 shadow-[inset_0_1px_2px_rgba(255,255,255,0.8)] shrink-0">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/50 dark:bg-gray-900/50 rounded-full border border-white/40 dark:border-gray-700/40 shadow-[inset_0_1px_2px_rgba(255,255,255,0.8)] shrink-0">
             <button
               onClick={() => {
                 const next = toolMode === 'draw' ? 'select' : 'draw';
@@ -1627,21 +1644,21 @@ const App: React.FC = () => {
                 setSelectionBox(null);
                 setGuides([]);
               }}
-              className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shrink-0 ${toolMode === 'draw' ? 'bg-violet-600 text-white shadow-md shadow-violet-500/30' : 'text-gray-600 hover:bg-white hover:shadow-sm'}`}
+              className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shrink-0 ${toolMode === 'draw' ? 'bg-violet-600 dark:bg-violet-600 text-white shadow-md shadow-violet-500/30' : 'text-gray-600 dark:text-gray-300 hover:bg-white hover:shadow-sm'}`}
               title="自由画笔 / 选择工具"
             >
               <i className="fa-solid fa-paintbrush"></i>
             </button>
             {toolMode === 'draw' && (
-              <div className="flex items-center gap-2 px-2 animate-in fade-in slide-in-from-left-2 origin-left border-l border-gray-200/50 pl-3 shrink-0">
-                <i className="fa-solid fa-circle text-gray-400 text-[8px]" style={{ transform: `scale(${brushSize / 50 + 0.5})` }}></i>
+              <div className="flex items-center gap-2 px-2 animate-in fade-in slide-in-from-left-2 origin-left border-l border-gray-200/50 dark:border-gray-700/50 pl-3 shrink-0">
+                <i className="fa-solid fa-circle text-gray-400 dark:text-gray-500 text-[8px]" style={{ transform: `scale(${brushSize / 50 + 0.5})` }}></i>
                 <input
                   type="range"
                   min="1"
                   max="50"
                   value={brushSize}
                   onChange={(e) => setBrushSize(parseInt(e.target.value))}
-                  className="w-24 h-1.5 bg-violet-100 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:bg-violet-600 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:shadow-md hover:[&::-webkit-slider-thumb]:scale-110 active:[&::-webkit-slider-thumb]:scale-95 transition-all"
+                  className="w-24 h-1.5 bg-violet-100 dark:bg-violet-900/40 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:bg-violet-600 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:shadow-md hover:[&::-webkit-slider-thumb]:scale-110 active:[&::-webkit-slider-thumb]:scale-95 transition-all"
                   title={`画笔粗细: ${brushSize}px`}
                 />
                 {/* Bug #10: Hex 颜色输入框 */}
@@ -1658,44 +1675,44 @@ const App: React.FC = () => {
                   }}
                   onPointerDown={(e) => e.stopPropagation()}
                   onKeyDown={(e) => e.stopPropagation()}
-                  className="w-[72px] text-xs font-mono text-center border border-gray-200 rounded-full py-1 bg-white/80 focus:outline-none focus:border-violet-400 uppercase transition-colors shrink-0"
+                  className="w-[72px] text-xs font-mono text-center border border-gray-200 dark:border-gray-700 rounded-full py-1 bg-white/80 dark:bg-gray-900/80 focus:outline-none focus:border-violet-400 uppercase transition-colors shrink-0"
                   placeholder="#000000"
                 />
               </div>
             )}
           </div>
-          <div className="w-[1px] h-6 bg-gray-200 mx-1 shrink-0"></div>
+          <div className="w-[1px] h-6 bg-gray-200 dark:bg-gray-700 mx-1 shrink-0"></div>
 
-          <button title={past.length === 0 ? '无可撤销的操作' : '撤销 (Ctrl+Z)'} onClick={undo} disabled={past.length === 0} className={`w-9 h-9 flex items-center justify-center rounded-full transition-all shrink-0 ${past.length === 0 ? 'opacity-30 cursor-not-allowed text-gray-400' : 'hover:bg-gray-100 text-gray-700 active:scale-90'}`}>
+          <button title={past.length === 0 ? '无可撤销的操作' : '撤销 (Ctrl+Z)'} onClick={undo} disabled={past.length === 0} className={`w-9 h-9 flex items-center justify-center rounded-full transition-all shrink-0 ${past.length === 0 ? 'opacity-30 cursor-not-allowed text-gray-400 dark:text-gray-500' : 'hover:bg-gray-100 text-gray-700 dark:text-gray-200 active:scale-90'}`}>
             <i className="fa-solid fa-rotate-left text-sm"></i>
           </button>
-          <button title={future.length === 0 ? '无可重做的操作' : '重做 (Ctrl+Y)'} onClick={redo} disabled={future.length === 0} className={`w-9 h-9 flex items-center justify-center rounded-full transition-all shrink-0 ${future.length === 0 ? 'opacity-30 cursor-not-allowed text-gray-400' : 'hover:bg-gray-100 text-gray-700 active:scale-90'}`}>
+          <button title={future.length === 0 ? '无可重做的操作' : '重做 (Ctrl+Y)'} onClick={redo} disabled={future.length === 0} className={`w-9 h-9 flex items-center justify-center rounded-full transition-all shrink-0 ${future.length === 0 ? 'opacity-30 cursor-not-allowed text-gray-400 dark:text-gray-500' : 'hover:bg-gray-100 text-gray-700 dark:text-gray-200 active:scale-90'}`}>
             <i className="fa-solid fa-rotate-right text-sm"></i>
           </button>
 
-          <div className="w-[1px] h-6 bg-gray-200 mx-1 shrink-0"></div>
+          <div className="w-[1px] h-6 bg-gray-200 dark:bg-gray-700 mx-1 shrink-0"></div>
 
           <button
             title={selectedIds.length === 0 ? '请先选中元素' : '删除选中图元 (Delete)'}
             onClick={handleDeleteSelected}
             disabled={selectedIds.length === 0}
-            className={`w-9 h-9 flex items-center justify-center rounded-full transition-all shadow-sm shrink-0 ${selectedIds.length === 0 ? 'opacity-30 cursor-not-allowed text-gray-400' : 'hover:bg-red-50 hover:text-red-500 text-gray-500 active:scale-95'}`}
+            className={`w-9 h-9 flex items-center justify-center rounded-full transition-all shadow-sm shrink-0 ${selectedIds.length === 0 ? 'opacity-30 cursor-not-allowed text-gray-400 dark:text-gray-500' : 'hover:bg-red-50 hover:text-red-500 text-gray-500 dark:text-gray-400 active:scale-95'}`}
           >
             <i className="fa-solid fa-trash text-sm"></i>
           </button>
 
-          <button type="button" title="导出作品" onClick={(e) => { e.stopPropagation(); setExportModalOpen(true); }} disabled={isExporting || elements.length === 0} className={`w-9 h-9 flex items-center justify-center rounded-full transition-all shadow-sm shrink-0 ${isExporting ? 'text-gray-400' : 'hover:bg-green-50 hover:text-green-600 text-gray-500 disabled:opacity-50 disabled:cursor-not-allowed'}`}>
+          <button type="button" title="导出作品" onClick={(e) => { e.stopPropagation(); setExportModalOpen(true); }} disabled={isExporting || elements.length === 0} className={`w-9 h-9 flex items-center justify-center rounded-full transition-all shadow-sm shrink-0 ${isExporting ? 'text-gray-400 dark:text-gray-500' : 'hover:bg-green-50 hover:text-green-600 text-gray-500 dark:text-gray-400 disabled:opacity-50 disabled:cursor-not-allowed'}`}>
             <i className={`fa-solid ${isExporting ? 'fa-spinner fa-spin' : 'fa-download'} text-sm`}></i>
           </button>
 
-          <div className="w-[1px] h-6 bg-gray-200 mx-1 shrink-0"></div>
+          <div className="w-[1px] h-6 bg-gray-200 dark:bg-gray-700 mx-1 shrink-0"></div>
 
-          <div className="flex items-center bg-gray-50/50 rounded-full border border-gray-100 p-1 shrink-0">
-            <button title="缩小视图" onClick={() => setScale(s => Math.max(0.1, s - 0.2))} className="w-7 h-7 flex items-center justify-center hover:bg-white rounded-full bg-white shadow-sm text-gray-600"><i className="fa-solid fa-minus text-[10px]"></i></button>
+          <div className="flex items-center bg-gray-50/50 dark:bg-gray-800/50 rounded-full border border-gray-100 dark:border-gray-800 p-1 shrink-0">
+            <button title="缩小视图" onClick={() => setScale(s => Math.max(0.1, s - 0.2))} className="w-7 h-7 flex items-center justify-center hover:bg-white rounded-full bg-white dark:bg-gray-900 shadow-sm text-gray-600 dark:text-gray-300"><i className="fa-solid fa-minus text-[10px]"></i></button>
             {/* Bug #5: 引入本地状态 zoomInputValue 使输入框可编辑 */}
             <input
               title="双击或点击后输入缩放百分比"
-              className="w-14 text-center font-mono text-xs font-bold text-gray-600 bg-transparent outline-none focus:bg-white focus:rounded focus:shadow-inner"
+              className="w-14 text-center font-mono text-xs font-bold text-gray-600 dark:text-gray-300 bg-transparent outline-none focus:bg-white focus:rounded focus:shadow-inner"
               style={{ padding: '0 2px' }}
               value={isZoomFocused ? zoomInputValue : Math.round(scale * 100) + '%'}
               onPointerDown={(e) => e.stopPropagation()}
@@ -1719,9 +1736,9 @@ const App: React.FC = () => {
                 }
               }}
             />
-            <button title="放大视图" onClick={() => setScale(s => Math.min(5, s + 0.2))} className="w-7 h-7 flex items-center justify-center hover:bg-white rounded-full bg-white shadow-sm text-gray-600"><i className="fa-solid fa-plus text-[10px]"></i></button>
+            <button title="放大视图" onClick={() => setScale(s => Math.min(5, s + 0.2))} className="w-7 h-7 flex items-center justify-center hover:bg-white rounded-full bg-white dark:bg-gray-900 shadow-sm text-gray-600 dark:text-gray-300"><i className="fa-solid fa-plus text-[10px]"></i></button>
           </div>
-          <button title="自适应/还原视图" onClick={() => { setScale(1); setOffset({ x: 0, y: 0 }); }} className="w-9 h-9 flex items-center justify-center bg-violet-50 text-violet-600 hover:bg-violet-100 rounded-full shadow-sm ml-1 shrink-0"><i className="fa-solid fa-compress text-sm"></i></button>
+          <button title="自适应/还原视图" onClick={() => { setScale(1); setOffset({ x: 0, y: 0 }); }} className="w-9 h-9 flex items-center justify-center bg-violet-50 dark:bg-violet-950/40 text-violet-600 dark:text-violet-400 hover:bg-violet-100 rounded-full shadow-sm ml-1 shrink-0"><i className="fa-solid fa-compress text-sm"></i></button>
         </div>
 
         {/* AI 生图面板 */}
@@ -1749,7 +1766,7 @@ const App: React.FC = () => {
         {
           contextMenu && (
             <div
-              className="fixed z-[10002] bg-white/90 backdrop-blur-md rounded-xl shadow-2xl py-2 min-w-[160px] text-sm text-gray-700 border border-gray-100"
+              className="fixed z-[10002] bg-white/90 dark:bg-gray-900/90 backdrop-blur-md rounded-xl shadow-2xl py-2 min-w-[160px] text-sm text-gray-700 dark:text-gray-200 border border-gray-100 dark:border-gray-800"
               style={{ left: contextMenu.x, top: contextMenu.y }}
               onPointerDown={e => e.stopPropagation()}
               onContextMenu={e => e.preventDefault()}
@@ -1759,10 +1776,10 @@ const App: React.FC = () => {
                   <button className="w-full text-left px-5 py-2 hover:bg-violet-50 hover:text-violet-600 transition-colors" onPointerDown={() => { handleLayerMove(contextMenu.targetId!, 'up'); setContextMenu(null); }}>
                     <i className="fa-solid fa-arrow-up w-5 text-center text-xs mr-2 opacity-60"></i>移至上方
                   </button>
-                  <button className="w-full text-left px-5 py-2 hover:bg-violet-50 hover:text-violet-600 transition-colors border-b border-gray-100/50" onPointerDown={() => { handleLayerMove(contextMenu.targetId!, 'down'); setContextMenu(null); }}>
+                  <button className="w-full text-left px-5 py-2 hover:bg-violet-50 hover:text-violet-600 transition-colors border-b border-gray-100/50 dark:border-gray-800/50" onPointerDown={() => { handleLayerMove(contextMenu.targetId!, 'down'); setContextMenu(null); }}>
                     <i className="fa-solid fa-arrow-down w-5 text-center text-xs mr-2 opacity-60"></i>移至下方
                   </button>
-                  <button className="w-full text-left px-5 py-2 hover:bg-red-50 hover:text-red-500 transition-colors text-red-600 mt-1" onPointerDown={() => { handleDeleteSelected(); setContextMenu(null); }}>
+                  <button className="w-full text-left px-5 py-2 hover:bg-red-50 hover:text-red-500 transition-colors text-red-600 dark:text-red-400 mt-1" onPointerDown={() => { handleDeleteSelected(); setContextMenu(null); }}>
                     <i className="fa-solid fa-trash w-5 text-center text-xs mr-2 opacity-60"></i>删除选中项
                   </button>
                 </>
@@ -1771,10 +1788,10 @@ const App: React.FC = () => {
                   <button className="w-full text-left px-5 py-2 hover:bg-violet-50 hover:text-violet-600 transition-colors" onPointerDown={() => { setContextMenu(null); setTimeout(() => fileInputRef.current?.click(), 0); }}>
                     <i className="fa-solid fa-image w-5 text-center text-xs mr-2 opacity-60"></i>上传图片
                   </button>
-                  <button className="w-full text-left px-5 py-2 hover:bg-violet-50 hover:text-violet-600 transition-colors border-b border-gray-100/50" onPointerDown={() => { addTextCard(); setContextMenu(null); }}>
+                  <button className="w-full text-left px-5 py-2 hover:bg-violet-50 hover:text-violet-600 transition-colors border-b border-gray-100/50 dark:border-gray-800/50" onPointerDown={() => { addTextCard(); setContextMenu(null); }}>
                     <i className="fa-solid fa-t w-5 text-center text-xs mr-2 opacity-60"></i>添加文字
                   </button>
-                  <button className="w-full text-left px-5 py-2 hover:bg-violet-50 transition-colors text-gray-500 mt-1" onPointerDown={() => { setScale(1); setOffset({ x: 0, y: 0 }); setContextMenu(null); }}>
+                  <button className="w-full text-left px-5 py-2 hover:bg-violet-50 transition-colors text-gray-500 dark:text-gray-400 mt-1" onPointerDown={() => { setScale(1); setOffset({ x: 0, y: 0 }); setContextMenu(null); }}>
                     <i className="fa-solid fa-compress w-5 text-center text-xs mr-2 opacity-60"></i>重置视图
                   </button>
                 </>
@@ -1787,12 +1804,12 @@ const App: React.FC = () => {
         {
           exportModalOpen && (
             <div className="fixed inset-0 z-[11000] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onPointerDown={() => setExportModalOpen(false)}>
-              <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-[420px] shrink-0" onPointerDown={e => e.stopPropagation()}>
-                <h3 className="text-base font-black text-gray-800 mb-4 flex items-center gap-2"><i className="fa-solid fa-download text-violet-500"></i>导出设计</h3>
-                <p className="text-sm text-gray-500 mb-6 font-medium leading-relaxed whitespace-normal break-words">目前仅支持导出为包含所有可见元素的 PNG 高清图片。未来将增加 PDF 与 JPG 等更多格式配置选项。</p>
+              <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl p-6 w-full max-w-[420px] shrink-0" onPointerDown={e => e.stopPropagation()}>
+                <h3 className="text-base font-black text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2"><i className="fa-solid fa-download text-violet-500 dark:text-violet-400"></i>导出设计</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 font-medium leading-relaxed whitespace-normal break-words">目前仅支持导出为包含所有可见元素的 PNG 高清图片。未来将增加 PDF 与 JPG 等更多格式配置选项。</p>
                 <div className="flex gap-3 flex-wrap">
-                  <button type="button" onClick={() => setExportModalOpen(false)} className="flex-1 min-w-[120px] py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold transition-colors">取消</button>
-                  <button type="button" onClick={() => { setExportModalOpen(false); handleExport(); }} className="flex-1 min-w-[120px] py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold shadow-md shadow-violet-200 transition-colors">确认导出</button>
+                  <button type="button" onClick={() => setExportModalOpen(false)} className="flex-1 min-w-[120px] py-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 text-gray-700 dark:text-gray-200 font-bold transition-colors">取消</button>
+                  <button type="button" onClick={() => { setExportModalOpen(false); handleExport(); }} className="flex-1 min-w-[120px] py-2.5 rounded-xl bg-violet-600 dark:bg-violet-600 hover:bg-violet-700 text-white font-bold shadow-md shadow-violet-200 transition-colors">确认导出</button>
                 </div>
               </div>
             </div>
@@ -1800,8 +1817,8 @@ const App: React.FC = () => {
         }
 
         {/* Global Toast Notification - Bug #8 Fixed */}
-        <div className={`fixed top-8 left-1/2 -translate-x-1/2 z-[12000] transition-all duration-300 pointer-events-none flex items-center gap-2 px-5 py-3 rounded-2xl shadow-xl border ${toastMsg ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 -translate-y-4 scale-95'} ${toastMsg?.includes('失败') || toastMsg?.includes('空') ? 'bg-red-50 border-red-100 text-red-600' : toastMsg?.includes('成功') ? 'bg-green-50 border-green-100 text-green-600' : 'bg-white/90 backdrop-blur border-gray-100 text-gray-800'}`}>
-          <i className={`fa-solid ${toastMsg?.includes('失败') || toastMsg?.includes('空') ? 'fa-circle-exclamation' : toastMsg?.includes('成功') ? 'fa-circle-check' : 'fa-info-circle'} ${toastMsg?.includes('成功') ? 'text-green-500' : toastMsg?.includes('失败') ? 'text-red-500' : 'text-violet-500'}`}></i>
+        <div className={`fixed top-8 left-1/2 -translate-x-1/2 z-[12000] transition-all duration-300 pointer-events-none flex items-center gap-2 px-5 py-3 rounded-2xl shadow-xl border ${toastMsg ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 -translate-y-4 scale-95'} ${toastMsg?.includes('失败') || toastMsg?.includes('空') ? 'bg-red-50 dark:bg-red-950/40 border-red-100 dark:border-red-900/50 text-red-600 dark:text-red-400' : toastMsg?.includes('成功') ? 'bg-green-50 dark:bg-green-950/40 border-green-100 dark:border-green-900/50 text-green-600 dark:text-green-400' : 'bg-white/90 dark:bg-gray-900/90 backdrop-blur border-gray-100 dark:border-gray-800 text-gray-800 dark:text-gray-100'}`}>
+          <i className={`fa-solid ${toastMsg?.includes('失败') || toastMsg?.includes('空') ? 'fa-circle-exclamation' : toastMsg?.includes('成功') ? 'fa-circle-check' : 'fa-info-circle'} ${toastMsg?.includes('成功') ? 'text-green-500 dark:text-green-400' : toastMsg?.includes('失败') ? 'text-red-500 dark:text-red-400' : 'text-violet-500 dark:text-violet-400'}`}></i>
           <span className="text-sm font-bold tracking-tight">{toastMsg}</span>
         </div>
 
@@ -1891,14 +1908,16 @@ const App: React.FC = () => {
         onToggle={toggleDrawer}
         hasSelection={selectedIds.length > 0}
         onShowToast={handleShowToast}
+        isDarkMode={isDarkMode}
+        onToggleTheme={toggleTheme}
       />
 
-      <aside style={{ width: `${rightPanelWidth}px`, maxWidth: '400px' }} className="bg-white border-l border-black/5 flex flex-col z-20 shadow-[-10px_0_30px_rgba(0,0,0,0.03)] shrink-0 relative overflow-hidden">
-        <div className="flex flex-col h-full border-b border-gray-100">
-          <div className="p-8 border-b border-gray-50 shrink-0">
+      <aside style={{ width: `${rightPanelWidth}px`, maxWidth: '400px' }} className="bg-white dark:bg-gray-900 border-l border-black/5 flex flex-col z-20 shadow-[-10px_0_30px_rgba(0,0,0,0.03)] shrink-0 relative overflow-hidden">
+        <div className="flex flex-col h-full border-b border-gray-100 dark:border-gray-800">
+          <div className="p-8 border-b border-gray-50 dark:border-gray-800 shrink-0">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-black flex items-center gap-2 tracking-tight text-gray-800">
-                <i className="fa-solid fa-wand-magic-sparkles text-violet-500"></i>
+              <h2 className="text-base font-black flex items-center gap-2 tracking-tight text-gray-800 dark:text-gray-100">
+                <i className="fa-solid fa-wand-magic-sparkles text-violet-500 dark:text-violet-400"></i>
                 Lumina AI 助手
               </h2>
             </div>
@@ -1907,7 +1926,7 @@ const App: React.FC = () => {
               const hasSelection = safeSelectedElements.length > 0;
               return (
                 <div
-                  className={`p-4 rounded-2xl border transition-all ${hasSelection ? 'bg-violet-50/50 border-violet-100 shadow-sm cursor-pointer hover:shadow-md hover:border-violet-200 active:scale-[0.99]' : 'bg-gray-50 border-gray-100 opacity-60'}`}
+                  className={`p-4 rounded-2xl border transition-all ${hasSelection ? 'bg-violet-50/50 dark:bg-violet-950/30 border-violet-100 dark:border-violet-900/50 shadow-sm cursor-pointer hover:shadow-md hover:border-violet-200 active:scale-[0.99]' : 'bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-800 opacity-60'}`}
                   onClick={() => {
                     if (!hasSelection) return;
                     // Bug #1 Fix: 点击选中素材卡片触发 AI 分析
@@ -1927,17 +1946,17 @@ const App: React.FC = () => {
                         const el = safeSelectedElements[0];
                         return (
                           <div className="flex items-center gap-4">
-                            <div className="w-14 h-14 bg-white rounded-xl flex items-center justify-center border border-violet-100 overflow-hidden shrink-0 shadow-sm">
-                              {el.type === 'image' && el.content ? <img src={el.content} className="w-full h-full object-cover" alt="sel" /> : <i className={`fa-solid ${el.type === 'path' ? 'fa-pen-nib' : el.type === 'image' ? 'fa-image' : 'fa-font'} text-violet-400 text-xl`}></i>}
+                            <div className="w-14 h-14 bg-white dark:bg-gray-900 rounded-xl flex items-center justify-center border border-violet-100 dark:border-violet-900/50 overflow-hidden shrink-0 shadow-sm">
+                              {el.type === 'image' && el.content ? <img src={el.content} className="w-full h-full object-cover" alt="sel" /> : <i className={`fa-solid ${el.type === 'path' ? 'fa-pen-nib' : el.type === 'image' ? 'fa-image' : 'fa-font'} text-violet-400 dark:text-violet-300 text-xl`}></i>}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-xs font-black text-violet-900 truncate uppercase tracking-widest">{el.name || '智能对象'}</p>
+                              <p className="text-xs font-black text-violet-900 dark:text-violet-100 truncate uppercase tracking-widest">{el.name || '智能对象'}</p>
                               {el.sourceResolution && (
-                                <p className="text-[11px] text-violet-400 font-bold opacity-80 mt-0.5">
+                                <p className="text-[11px] text-violet-400 dark:text-violet-300 font-bold opacity-80 mt-0.5">
                                   {el.sourceResolution.width}×{el.sourceResolution.height}（{formatResolutionTier(el.sourceResolution.width, el.sourceResolution.height)}）
                                 </p>
                               )}
-                              <p className="text-[11px] text-violet-500 font-bold opacity-80 mt-1">点击分析选中素材 →</p>
+                              <p className="text-[11px] text-violet-500 dark:text-violet-400 font-bold opacity-80 mt-1">点击分析选中素材 →</p>
                             </div>
                           </div>
                         );
@@ -1946,11 +1965,11 @@ const App: React.FC = () => {
                       // Multi Item View (New)
                       <div className="flex flex-col gap-3">
                         <div className="flex items-center justify-between">
-                          <p className="text-xs font-black text-violet-900 uppercase tracking-widest flex items-center gap-2">
-                            <i className="fa-solid fa-layer-group text-violet-400"></i>
+                          <p className="text-xs font-black text-violet-900 dark:text-violet-100 uppercase tracking-widest flex items-center gap-2">
+                            <i className="fa-solid fa-layer-group text-violet-400 dark:text-violet-300"></i>
                             已选 {safeSelectedElements.length} 个素材
                           </p>
-                          <p className="text-[10px] text-violet-400 font-bold opacity-80">点击批量分析 →</p>
+                          <p className="text-[10px] text-violet-400 dark:text-violet-300 font-bold opacity-80">点击批量分析 →</p>
                         </div>
                         <div className="flex gap-2 flex-wrap">
                           {(() => {
@@ -1962,12 +1981,12 @@ const App: React.FC = () => {
                             return (
                               <>
                                 {safeSelectedElements.slice(0, Math.max(1, maxItems)).map(el => (
-                                  <div key={el.id} className="w-10 h-10 bg-white rounded-lg flex items-center justify-center border border-violet-100 overflow-hidden shrink-0 shadow-sm relative group cursor-pointer hover:border-violet-300 transition-colors" title={el.name}>
-                                    {el.type === 'image' ? <img src={el.content} className="w-full h-full object-cover" alt={el.name} /> : <i className={`fa-solid ${el.type === 'path' ? 'fa-pen-nib' : 'fa-font'} text-violet-300 text-xs`}></i>}
+                                  <div key={el.id} className="w-10 h-10 bg-white dark:bg-gray-900 rounded-lg flex items-center justify-center border border-violet-100 dark:border-violet-900/50 overflow-hidden shrink-0 shadow-sm relative group cursor-pointer hover:border-violet-300 transition-colors" title={el.name}>
+                                    {el.type === 'image' ? <img src={el.content} className="w-full h-full object-cover" alt={el.name} /> : <i className={`fa-solid ${el.type === 'path' ? 'fa-pen-nib' : 'fa-font'} text-violet-300 dark:text-violet-400 text-xs`}></i>}
                                   </div>
                                 ))}
                                 {showMore && (
-                                  <div className="w-10 h-10 bg-violet-50 rounded-lg flex items-center justify-center border border-violet-200 shrink-0 text-violet-600 font-black text-xs shadow-sm" title={`还有 ${safeSelectedElements.length - maxItems} 个`}>
+                                  <div className="w-10 h-10 bg-violet-50 dark:bg-violet-950/40 rounded-lg flex items-center justify-center border border-violet-200 dark:border-violet-800 shrink-0 text-violet-600 dark:text-violet-400 font-black text-xs shadow-sm" title={`还有 ${safeSelectedElements.length - maxItems} 个`}>
                                     +{safeSelectedElements.length - maxItems}
                                   </div>
                                 )}
@@ -1977,7 +1996,7 @@ const App: React.FC = () => {
                         </div>
                       </div>
                     )
-                  ) : messages.length <= 1 ? <p className="text-sm text-gray-500 text-center py-3 font-medium">选择画布元素开启智能对话</p> : null}
+                  ) : messages.length <= 1 ? <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-3 font-medium">选择画布元素开启智能对话</p> : null}
                 </div>
               );
             })()}
@@ -1985,18 +2004,18 @@ const App: React.FC = () => {
           </div>
 
 
-          <div className="flex-1 overflow-y-auto px-6 py-6 pr-[70px] scrollbar-hide space-y-6 bg-white relative min-h-0 min-w-0 w-full">
+          <div className="flex-1 overflow-y-auto px-6 py-6 pr-[70px] scrollbar-hide space-y-6 bg-white dark:bg-gray-900 relative min-h-0 min-w-0 w-full">
             {messages.map((msg, idx) => (
               <div key={idx} className={`flex items-start gap-2.5 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white shrink-0 shadow-sm relative ${msg.role === 'user' ? 'bg-violet-600' : 'bg-gradient-to-br from-violet-600 to-fuchsia-500'}`}>
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white shrink-0 shadow-sm relative ${msg.role === 'user' ? 'bg-violet-600 dark:bg-violet-600' : 'bg-gradient-to-br from-violet-600 to-fuchsia-500'}`}>
                   <i className={`fa-solid ${msg.role === 'user' ? 'fa-user text-[10px]' : 'fa-bolt text-[10px]'}`}></i>
                   {msg.role === 'assistant' && (
-                    <div className="absolute -bottom-0.5 -right-0.5 bg-white rounded-full p-0.4 border border-violet-100">
-                      <div className="bg-violet-600 w-1.5 h-1.5 rounded-full"></div>
+                    <div className="absolute -bottom-0.5 -right-0.5 bg-white dark:bg-gray-900 rounded-full p-0.4 border border-violet-100 dark:border-violet-900/50">
+                      <div className="bg-violet-600 dark:bg-violet-600 w-1.5 h-1.5 rounded-full"></div>
                     </div>
                   )}
                 </div>
-                <div className={`relative rounded-[16px] px-3.5 py-2.5 text-xs leading-[1.8] shadow-sm ${msg.role === 'user' ? 'bg-violet-600 text-white rounded-tr-none' : 'bg-gray-50 border border-gray-100 text-gray-800 rounded-tl-none'} max-w-[90%]`}>
+                <div className={`relative rounded-[16px] px-3.5 py-2.5 text-xs leading-[1.8] shadow-sm ${msg.role === 'user' ? 'bg-violet-600 dark:bg-violet-600 text-white rounded-tr-none' : 'bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-800 text-gray-800 dark:text-gray-100 rounded-tl-none'} max-w-[90%]`}>
                   {msg.role === 'user' ? (
                     <p className="whitespace-pre-wrap font-medium">{msg.text}</p>
                   ) : (
@@ -2004,7 +2023,7 @@ const App: React.FC = () => {
                       <ReactMarkdown>{msg.text}</ReactMarkdown>
                     </div>
                   )}
-                  <div className={`text-[9px] mt-1 font-bold tracking-tight opacity-50 ${msg.role === 'user' ? 'text-violet-100 text-right' : 'text-gray-400'}`}>
+                  <div className={`text-[9px] mt-1 font-bold tracking-tight opacity-50 ${msg.role === 'user' ? 'text-violet-100 dark:text-violet-200 text-right' : 'text-gray-400 dark:text-gray-500'}`}>
                     {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </div>
                 </div>
@@ -2015,11 +2034,11 @@ const App: React.FC = () => {
                 <div className="w-6 h-6 rounded-full bg-gradient-to-br from-violet-600 to-fuchsia-500 flex items-center justify-center text-white shrink-0 shadow-sm">
                   <i className="fa-solid fa-bolt text-[10px]"></i>
                 </div>
-                <div className="bg-gray-50 border border-gray-100 rounded-[16px] rounded-tl-none px-3.5 py-2.5 flex gap-1 items-center">
-                  <div className="w-1 h-1 bg-violet-400 rounded-full animate-bounce"></div>
-                  <div className="w-1 h-1 bg-violet-400 rounded-full animate-bounce [animation-delay:0.2s]"></div>
-                  <div className="w-1 h-1 bg-violet-400 rounded-full animate-bounce [animation-delay:0.4s]"></div>
-                <span className="text-[10px] text-violet-500 font-bold ml-1.5 whitespace-nowrap">
+                <div className="bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-800 rounded-[16px] rounded-tl-none px-3.5 py-2.5 flex gap-1 items-center">
+                  <div className="w-1 h-1 bg-violet-400 dark:bg-violet-500 rounded-full animate-bounce"></div>
+                  <div className="w-1 h-1 bg-violet-400 dark:bg-violet-500 rounded-full animate-bounce [animation-delay:0.2s]"></div>
+                  <div className="w-1 h-1 bg-violet-400 dark:bg-violet-500 rounded-full animate-bounce [animation-delay:0.4s]"></div>
+                <span className="text-[10px] text-violet-500 dark:text-violet-400 font-bold ml-1.5 whitespace-nowrap">
                   {typingSeconds < 10 ? 'Lumina 正在思考...' : `Lumina 正在深度思考… 已等待 ${typingSeconds} 秒`}
                 </span>
                 </div>
@@ -2028,7 +2047,7 @@ const App: React.FC = () => {
             <div ref={chatEndRef} />
           </div>
 
-          <div className="p-8 bg-white border-t border-gray-50">
+          <div className="p-8 bg-white dark:bg-gray-900 border-t border-gray-50 dark:border-gray-800">
             <div className="flex flex-wrap gap-2 mb-5">
               {(() => {
                 const firstEl = elements.find(el => selectedIds.includes(el.id));
@@ -2039,7 +2058,7 @@ const App: React.FC = () => {
                     : ['功能简介', '配色优化方案', '导出设计技巧'];
                 return prompts.map((p, i) => (
                   <button key={i} onClick={() => handleSendMessage(p)}
-                    className="text-xs bg-gray-50 hover:bg-violet-50 text-violet-600 border border-gray-200 hover:border-violet-100 px-4 py-2 rounded-full font-bold shadow-sm transition-all">
+                    className="text-xs bg-gray-50 dark:bg-gray-800 hover:bg-violet-50 text-violet-600 dark:text-violet-400 border border-gray-200 dark:border-gray-700 hover:border-violet-100 px-4 py-2 rounded-full font-bold shadow-sm transition-all">
                     {p}
                   </button>
                 ));
@@ -2062,8 +2081,8 @@ const App: React.FC = () => {
                   }
                 }}
                 placeholder="询问 Lumina..."
-                className="w-full bg-gray-50/50 border border-gray-200 rounded-3xl p-5 pr-16 text-base leading-relaxed focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 focus:bg-white transition-all shadow-inner resize-none min-h-[120px]"
-              /><button type="button" onClick={() => handleSendMessage()} disabled={isTyping || !inputText.trim()} className={`absolute bottom-5 right-5 w-11 h-11 rounded-2xl flex items-center justify-center transition-all ${inputText.trim() ? 'bg-violet-600 text-white shadow-lg shadow-violet-200 active:scale-90' : 'bg-gray-200 text-gray-400'}`}><i className="fa-solid fa-paper-plane text-sm"></i></button>
+                className="w-full bg-gray-50/50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-3xl p-5 pr-16 text-base leading-relaxed focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 focus:bg-white transition-all shadow-inner resize-none min-h-[120px]"
+              /><button type="button" onClick={() => handleSendMessage()} disabled={isTyping || !inputText.trim()} className={`absolute bottom-5 right-5 w-11 h-11 rounded-2xl flex items-center justify-center transition-all ${inputText.trim() ? 'bg-violet-600 dark:bg-violet-600 text-white shadow-lg shadow-violet-200 active:scale-90' : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500'}`}><i className="fa-solid fa-paper-plane text-sm"></i></button>
             </div>
           </div>
         </div>
