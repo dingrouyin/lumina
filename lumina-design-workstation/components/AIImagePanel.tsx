@@ -65,6 +65,15 @@ const PRODUCT_ANGLE_CHIPS = [
 
 const MAX_PROMPT_LENGTH = 500;
 
+// 从实际返回的像素尺寸估算档位标签，不直接回显请求时传的 resolution 参数——
+// 模型不一定照办请求的档位，这里按长边阈值换算更贴近真实结果
+function formatResolutionTier(width: number, height: number): string {
+  const longSide = Math.max(width, height);
+  if (longSide >= 3000) return '（约4K）';
+  if (longSide >= 1500) return '（约2K）';
+  return '（约1K）';
+}
+
 const AIImagePanel: React.FC<AIImagePanelProps> = ({
   isOpen,
   onClose,
@@ -104,7 +113,7 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
     if (!prompt.trim() || isLoading) return;
     clearError();
 
-    const dataUrl = await generate(
+    const result = await generate(
       prompt,
       isEditMode ? '1:1' : aspectRatio,
       isEditMode ? referenceImages : undefined,
@@ -113,11 +122,14 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
       resolutionOptions ? resolution : undefined,
     );
 
-    if (dataUrl) {
+    if (result) {
       const selected = ASPECT_RATIOS.find(r => r.value === aspectRatio) || ASPECT_RATIOS[0];
-      onInsertImage(dataUrl, selected.w, selected.h);
+      onInsertImage(result.dataUrl, selected.w, selected.h);
       const modelLabel = MODEL_OPTIONS.find(m => m.value === model)?.label || model;
-      onShowToast(`✨ ${isEditMode ? '图片已编辑并插入画布' : '图片已生成并插入画布'}（模型：${modelLabel}）`);
+      const sizeLabel = result.width && result.height
+        ? `，${result.width}×${result.height}${formatResolutionTier(result.width, result.height)}`
+        : '';
+      onShowToast(`✨ ${isEditMode ? '图片已编辑并插入画布' : '图片已生成并插入画布'}（模型：${modelLabel}${sizeLabel}）`);
       onClose();
     }
   };

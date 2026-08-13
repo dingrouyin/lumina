@@ -1,11 +1,18 @@
 import { useState, useCallback } from 'react';
 
+export interface GenerateResult {
+  dataUrl: string;
+  width?: number;
+  height?: number;
+}
+
 export interface UseImageGenerationReturn {
-  generate: (prompt: string, aspectRatio: string, inputImageDataUrls?: string[], editMode?: string, model?: string, resolution?: string) => Promise<string | null>;
+  generate: (prompt: string, aspectRatio: string, inputImageDataUrls?: string[], editMode?: string, model?: string, resolution?: string) => Promise<GenerateResult | null>;
   isLoading: boolean;
   error: string | null;
   translatedPrompt: string | null;
   usedModel: string | null;
+  outputDimensions: { width: number; height: number } | null;
   clearError: () => void;
 }
 
@@ -16,8 +23,14 @@ export function useImageGeneration(): UseImageGenerationReturn {
   const [error, setError] = useState<string | null>(null);
   const [translatedPrompt, setTranslatedPrompt] = useState<string | null>(null);
   const [usedModel, setUsedModel] = useState<string | null>(null);
+  const [outputDimensions, setOutputDimensions] = useState<{ width: number; height: number } | null>(null);
 
-  const clearError = useCallback(() => { setError(null); setTranslatedPrompt(null); setUsedModel(null); }, []);
+  const clearError = useCallback(() => {
+    setError(null);
+    setTranslatedPrompt(null);
+    setUsedModel(null);
+    setOutputDimensions(null);
+  }, []);
 
   const generate = useCallback(async (
     prompt: string,
@@ -26,7 +39,7 @@ export function useImageGeneration(): UseImageGenerationReturn {
     editMode?: string,
     model?: string,
     resolution?: string,
-  ): Promise<string | null> => {
+  ): Promise<GenerateResult | null> => {
     if (!prompt.trim()) {
       setError('请输入提示词');
       return null;
@@ -71,12 +84,13 @@ export function useImageGeneration(): UseImageGenerationReturn {
         throw new Error(data.error || `服务器错误 (${response.status})`);
       }
 
-      const { imageBase64, mimeType = 'image/png', finalPrompt, model: responseModel } = data;
+      const { imageBase64, mimeType = 'image/png', finalPrompt, model: responseModel, width, height } = data;
       if (!imageBase64) throw new Error('未收到图片数据，请重试');
 
       if (finalPrompt) setTranslatedPrompt(finalPrompt);
       if (responseModel) setUsedModel(responseModel);
-      return `data:${mimeType};base64,${imageBase64}`;
+      if (width && height) setOutputDimensions({ width, height });
+      return { dataUrl: `data:${mimeType};base64,${imageBase64}`, width, height };
 
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : '未知错误';
@@ -91,5 +105,5 @@ export function useImageGeneration(): UseImageGenerationReturn {
     }
   }, []);
 
-  return { generate, isLoading, error, translatedPrompt, usedModel, clearError };
+  return { generate, isLoading, error, translatedPrompt, usedModel, outputDimensions, clearError };
 }

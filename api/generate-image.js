@@ -44,6 +44,32 @@ const EDIT_MODE_TEMPLATES = {
   EDIT_MODE_PRODUCT_IMAGE: (p) => `请基于参考图中的产品主体，生成从新视角/机位观察到的画面：${p}。必须是同一件产品——外观、颜色、材质、比例、文字或图案等细节要与参考图完全一致，只改变观察角度（例如正视、俯视、侧视、45度角、背面等），不要更改产品本身的设计，除非指令特别要求，否则背景环境保持简洁、不做无关改动。`,
 };
 
+// OpenRouter 的响应里没有返回实际输出的像素尺寸（只有 b64_json/media_type），
+// 请求的 resolution 参数也不代表模型一定照办，所以直接解析图片文件头拿真实尺寸，
+// 而不是简单回显请求时传的 resolution 档位
+function getImageDimensions(buffer, mimeType) {
+  try {
+    if (mimeType === 'image/png' || (buffer[0] === 0x89 && buffer[1] === 0x50)) {
+      return { width: buffer.readUInt32BE(16), height: buffer.readUInt32BE(20) };
+    }
+    if (mimeType === 'image/jpeg' || (buffer[0] === 0xff && buffer[1] === 0xd8)) {
+      let offset = 2;
+      while (offset < buffer.length - 8) {
+        if (buffer[offset] !== 0xff) break;
+        const marker = buffer[offset + 1];
+        const isSOF = marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc;
+        if (isSOF) {
+          return { height: buffer.readUInt16BE(offset + 5), width: buffer.readUInt16BE(offset + 7) };
+        }
+        offset += 2 + buffer.readUInt16BE(offset + 2);
+      }
+    }
+  } catch (e) {
+    console.warn('[generate-image] 解析图片尺寸失败:', e.message);
+  }
+  return null;
+}
+
 // 多张参考图时，在指令前加一句说明，让模型能对上用户文字里写的"图1/图2"
 function buildReferencePreface(imageCount) {
   if (imageCount <= 1) return '';
@@ -152,7 +178,15 @@ export default async function handler(req, res) {
       throw new Error('生图服务返回了空结果，请重试');
     }
 
-    return res.status(200).json({ imageBase64, mimeType, model: selectedModel });
+    const dimensions = getImageDimensions(Buffer.from(imageBase64, 'base64'), mimeType);
+
+    return res.status(200).json({
+      imageBase64,
+      mimeType,
+      model: selectedModel,
+      width: dimensions?.width,
+      height: dimensions?.height,
+    });
 
   } catch (error) {
     if (error.name === 'TimeoutError' || error.name === 'AbortError') {
