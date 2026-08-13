@@ -6,6 +6,7 @@ import TypographyPanel from './components/TypographyPanel';
 import RightDock from './components/RightDock';
 import AIImagePanel from './components/AIImagePanel';
 import { getAIResponse, analyzeImageRegion } from './services/geminiService';
+import { putImage, deleteImage, getAllImages, getAllImageKeys } from './services/imageStore';
 import html2canvas from 'html2canvas';
 import ReactMarkdown from 'react-markdown';
 
@@ -228,8 +229,8 @@ const App: React.FC = () => {
 
   // --- Persistence Logic ---
   // Bug #11 Fix: 持久化增加 try/catch 处理 QuotaExceededError
-  // 优化：图片 base64 体积太大，保存时剥离 content，只保留布局信息
-  // 图片内容仅存在内存中，刷新后图片会消失但布局（位置/大小/图层）保留
+  // localStorage 装不下图片的 base64，布局信息（位置/大小/图层）存 localStorage，
+  // 图片内容单独存 IndexedDB（配额大得多），刷新后靠下面的 effect 从 IndexedDB 拼回来
   const saveToLocalStorage = useCallback(() => {
     try {
       const dataToSave = elementsRef.current.map(el => {
@@ -242,6 +243,37 @@ const App: React.FC = () => {
     } catch (e) {
       console.error('Lumina: localStorage 写入失败', e);
     }
+
+    // 图片内容异步写入 IndexedDB，顺便清理已经从画布删除的图片，避免无限膨胀
+    (async () => {
+      try {
+        const imageEls = elementsRef.current.filter(el => el.type === 'image' && el.content);
+        await Promise.all(imageEls.map(el => putImage(el.id, el.content)));
+        const currentIds = new Set(imageEls.map(el => el.id));
+        const storedIds = await getAllImageKeys();
+        await Promise.all(storedIds.filter(id => !currentIds.has(id)).map(id => deleteImage(id)));
+      } catch (e) {
+        console.error('Lumina: IndexedDB 图片持久化失败', e);
+      }
+    })();
+  }, []);
+
+  // 挂载时从 IndexedDB 把图片内容拼回刚从 localStorage 恢复出来的元素上
+  // （localStorage 里的图片元素 content 是空字符串，这一步之前图片会一直显示不出来）
+  useEffect(() => {
+    (async () => {
+      try {
+        const images = await getAllImages();
+        if (Object.keys(images).length === 0) return;
+        setElements(prev => prev.map(el =>
+          el.type === 'image' && !el.content && images[el.id]
+            ? { ...el, content: images[el.id] }
+            : el
+        ));
+      } catch (e) {
+        console.error('Lumina: 从 IndexedDB 恢复图片失败', e);
+      }
+    })();
   }, []);
 
   useEffect(() => {
