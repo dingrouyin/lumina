@@ -1741,15 +1741,6 @@ const App: React.FC = () => {
           <button title="自适应/还原视图" onClick={() => { setScale(1); setOffset({ x: 0, y: 0 }); }} className="w-9 h-9 flex items-center justify-center bg-violet-50 dark:bg-violet-950/40 text-violet-600 dark:text-violet-400 hover:bg-violet-100 rounded-full shadow-sm ml-1 shrink-0"><i className="fa-solid fa-compress text-sm"></i></button>
         </div>
 
-        {/* AI 生图面板 */}
-        <AIImagePanel
-          isOpen={showAIImagePanel}
-          onClose={() => setShowAIImagePanel(false)}
-          onInsertImage={handleInsertAIImage}
-          onShowToast={handleShowToast}
-          selectedImageDataUrls={aiEditImageDataUrls}
-        />
-
         {isResizingRight && <div className="fixed inset-0 z-50 cursor-col-resize pointer-events-auto bg-black/5" />}
 
         {/* Hidden Global Color Picker to solve Bug #1 transform offset bug */}
@@ -1823,6 +1814,16 @@ const App: React.FC = () => {
         </div>
 
       </main >
+
+      {/* AI 生图面板——同样移到 <main> 外面，否则 <main> 的 overflow-hidden 会挡住/裁切面板，
+          导致面板伸到画布右侧时被右侧栏(RightDock/属性面板)盖住 */}
+      <AIImagePanel
+        isOpen={showAIImagePanel}
+        onClose={() => setShowAIImagePanel(false)}
+        onInsertImage={handleInsertAIImage}
+        onShowToast={handleShowToast}
+        selectedImageDataUrls={aiEditImageDataUrls}
+      />
 
       {/* Drawer Wrapper for Layer / Typography Panels - Moved outside <main> to avoid overflow: hidden clipping */}
       <div
