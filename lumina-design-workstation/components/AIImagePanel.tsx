@@ -86,8 +86,30 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
   const [editMode, setEditMode] = useState<string>('EDIT_MODE_DEFAULT');
   const [model, setModel] = useState<string>(MODEL_OPTIONS[0].value);
   const [resolution, setResolution] = useState<string>('1K');
+  // 面板默认停靠在底部居中，拖拽只是叠加一个像素偏移量，不改变原有的定位方式
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const dragStateRef = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { generate, isLoading, error, translatedPrompt, usedModel, clearError } = useImageGeneration();
+
+  const handleDragPointerDown = (e: React.PointerEvent) => {
+    e.stopPropagation();
+    if ((e.target as HTMLElement).closest('button')) return; // 关闭按钮保持可点击，不进入拖动
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    dragStateRef.current = { startX: e.clientX, startY: e.clientY, originX: dragOffset.x, originY: dragOffset.y };
+  };
+
+  const handleDragPointerMove = (e: React.PointerEvent) => {
+    if (!dragStateRef.current) return;
+    const { startX, startY, originX, originY } = dragStateRef.current;
+    setDragOffset({ x: originX + (e.clientX - startX), y: originY + (e.clientY - startY) });
+  };
+
+  const handleDragPointerUp = (e: React.PointerEvent) => {
+    if (!dragStateRef.current) return;
+    dragStateRef.current = null;
+    (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+  };
 
   const referenceImages = selectedImageDataUrls || [];
   const isEditMode = referenceImages.length > 0;
@@ -101,6 +123,7 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
     if (isOpen) {
       setPrompt('');
       clearError();
+      setDragOffset({ x: 0, y: 0 }); // 每次重新打开都回到默认停靠位置，避免上次拖丢在屏幕外
     }
   }, [isOpen, clearError]);
 
@@ -157,11 +180,17 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
       />
 
       <div
-        className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[9999] w-[440px] bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.15)] border border-white/60 dark:border-gray-700/60 overflow-hidden animate-in slide-in-from-bottom-4 fade-in duration-200"
+        className="fixed bottom-24 left-1/2 z-[9999] w-[440px] bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.15)] border border-white/60 dark:border-gray-700/60 overflow-hidden animate-in slide-in-from-bottom-4 fade-in duration-200"
+        style={{ transform: `translate(calc(-50% + ${dragOffset.x}px), ${dragOffset.y}px)` }}
         onPointerDown={(e) => e.stopPropagation()}
       >
-        {/* 标题栏 */}
-        <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800">
+        {/* 标题栏——可拖拽移动面板位置 */}
+        <div
+          className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800 cursor-move touch-none select-none"
+          onPointerDown={handleDragPointerDown}
+          onPointerMove={handleDragPointerMove}
+          onPointerUp={handleDragPointerUp}
+        >
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shadow-md shadow-violet-200">
               <i className={`fa-solid ${isEditMode ? 'fa-pen-to-square' : 'fa-wand-magic-sparkles'} text-white text-xs`} />
