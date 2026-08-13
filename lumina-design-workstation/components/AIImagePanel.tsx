@@ -18,8 +18,17 @@ const ASPECT_RATIOS = [
 
 const MODEL_OPTIONS = [
   { label: 'Gemini 2.5 Flash', value: 'google/gemini-2.5-flash-image', hint: '约 $0.04/张，速度快，最大约1024×1024' },
-  { label: 'Seedream 4.5', value: 'bytedance-seed/seedream-4.5', hint: '效果对比备选，最大支持4K' },
+  { label: 'Seedream 4.5', value: 'bytedance-seed/seedream-4.5', hint: '约 $0.04/张，最大支持4K' },
+  { label: 'Nano Banana 2 Lite', value: 'google/gemini-3.1-flash-lite-image', hint: '同Gemini家族，价格与默认模型相近' },
+  { label: 'FLUX.2 Klein 4B', value: 'black-forest-labs/flux.2-klein-4b', hint: '约 $0.014/张，最便宜，适合调试阶段' },
+  { label: 'GPT Image 2', value: 'openai/gpt-image-2', hint: '价格较高，图内文字渲染更强，适合特定场景' },
 ] as const;
+
+// 各模型支持的输出分辨率档位（查 OpenRouter /api/v1/images/models 的 supported_parameters 得来）。
+// 目前只有 Seedream 4.5 支持显式指定分辨率，其余模型没有该参数，不在此列出即代表不支持
+const MODEL_RESOLUTIONS: Record<string, readonly string[]> = {
+  'bytedance-seed/seedream-4.5': ['1K', '2K', '4K'],
+};
 
 const EDIT_MODES = [
   {
@@ -67,12 +76,14 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
   const [aspectRatio, setAspectRatio] = useState<string>('1:1');
   const [editMode, setEditMode] = useState<string>('EDIT_MODE_DEFAULT');
   const [model, setModel] = useState<string>(MODEL_OPTIONS[0].value);
+  const [resolution, setResolution] = useState<string>('1K');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { generate, isLoading, error, translatedPrompt, usedModel, clearError } = useImageGeneration();
 
   const referenceImages = selectedImageDataUrls || [];
   const isEditMode = referenceImages.length > 0;
   const isMultiRef = referenceImages.length > 1;
+  const resolutionOptions = MODEL_RESOLUTIONS[model];
 
   useEffect(() => {
     if (isOpen && textareaRef.current) {
@@ -99,6 +110,7 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
       isEditMode ? referenceImages : undefined,
       isEditMode ? editMode : undefined,
       model,
+      resolutionOptions ? resolution : undefined,
     );
 
     if (dataUrl) {
@@ -162,7 +174,7 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
           {/* 模型选择 */}
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-gray-600 uppercase tracking-wider">模型</label>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {MODEL_OPTIONS.map((m) => (
                 <button
                   key={m.value}
@@ -170,7 +182,7 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
                   onClick={() => { setModel(m.value); clearError(); }}
                   disabled={isLoading}
                   title={m.hint}
-                  className={`flex-1 py-2 px-2 rounded-xl text-xs font-bold transition-all border ${
+                  className={`py-2 px-2.5 rounded-xl text-xs font-bold transition-all border ${
                     model === m.value
                       ? 'bg-violet-600 border-violet-600 text-white shadow-md shadow-violet-200'
                       : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-violet-300 hover:text-violet-600'
@@ -181,6 +193,30 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
               ))}
             </div>
           </div>
+
+          {/* 分辨率选择——只有支持该参数的模型才显示（目前仅 Seedream 4.5） */}
+          {resolutionOptions && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-gray-600 uppercase tracking-wider">分辨率</label>
+              <div className="flex gap-2">
+                {resolutionOptions.map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setResolution(r)}
+                    disabled={isLoading}
+                    className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all border ${
+                      resolution === r
+                        ? 'bg-violet-600 border-violet-600 text-white shadow-md shadow-violet-200'
+                        : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-violet-300 hover:text-violet-600'
+                    }`}
+                  >
+                    {r}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* 编辑模式：原图预览 + 编辑类型 */}
           {isEditMode && (

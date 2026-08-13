@@ -1,8 +1,21 @@
 const OPENROUTER_ENDPOINT = 'https://openrouter.ai/api/v1/images';
 const DEFAULT_MODEL = 'google/gemini-2.5-flash-image';
-const ALLOWED_MODELS = ['google/gemini-2.5-flash-image', 'bytedance-seed/seedream-4.5'];
+const ALLOWED_MODELS = [
+  'google/gemini-2.5-flash-image',
+  'bytedance-seed/seedream-4.5',
+  'google/gemini-3.1-flash-lite-image',
+  'black-forest-labs/flux.2-klein-4b',
+  'openai/gpt-image-2',
+];
 const MAX_PROMPT_LENGTH = 500;
 const MAX_REFERENCE_IMAGES = 2;
+
+// 每个模型能接受的 resolution 枚举值不同（查 OpenRouter /api/v1/images/models 得来），
+// 目前候选模型里只有 Seedream 4.5 支持这个字段，其余模型没有该 supported_parameter，
+// 传了会被 OpenRouter 拒绝，所以按模型白名单校验，不支持的模型直接忽略该参数
+const MODEL_RESOLUTIONS = {
+  'bytedance-seed/seedream-4.5': ['1K', '2K', '4K'],
+};
 
 // undici 默认连接超时 10s，境外域名网络抖动时容易在建连阶段就失败（fetch failed）
 // 只重试"确定还没把请求发出去"的连接阶段错误——ECONNRESET/ETIMEDOUT 可能发生在
@@ -49,6 +62,7 @@ export default async function handler(req, res) {
     images,
     editMode = 'EDIT_MODE_DEFAULT',
     model,
+    resolution,
   } = req.body;
 
   const selectedModel = ALLOWED_MODELS.includes(model) ? model : DEFAULT_MODEL;
@@ -75,6 +89,9 @@ export default async function handler(req, res) {
   const isEditMode = referenceImages.length > 0;
 
   const requestBody = { model: selectedModel };
+  if (MODEL_RESOLUTIONS[selectedModel]?.includes(resolution)) {
+    requestBody.resolution = resolution;
+  }
   if (isEditMode) {
     const template = EDIT_MODE_TEMPLATES[editMode] || EDIT_MODE_TEMPLATES.EDIT_MODE_DEFAULT;
     requestBody.prompt = buildReferencePreface(referenceImages.length) + template(prompt.trim());

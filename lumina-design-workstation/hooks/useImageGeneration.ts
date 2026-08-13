@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 
 export interface UseImageGenerationReturn {
-  generate: (prompt: string, aspectRatio: string, inputImageDataUrls?: string[], editMode?: string, model?: string) => Promise<string | null>;
+  generate: (prompt: string, aspectRatio: string, inputImageDataUrls?: string[], editMode?: string, model?: string, resolution?: string) => Promise<string | null>;
   isLoading: boolean;
   error: string | null;
   translatedPrompt: string | null;
@@ -25,6 +25,7 @@ export function useImageGeneration(): UseImageGenerationReturn {
     inputImageDataUrls?: string[],
     editMode?: string,
     model?: string,
+    resolution?: string,
   ): Promise<string | null> => {
     if (!prompt.trim()) {
       setError('请输入提示词');
@@ -52,6 +53,9 @@ export function useImageGeneration(): UseImageGenerationReturn {
       }
       if (model) {
         body.model = model;
+      }
+      if (resolution) {
+        body.resolution = resolution;
       }
 
       const response = await fetch(`${API_BASE}/api/generate-image`, {
