@@ -15,6 +15,14 @@ const SNAP_THRESHOLD = 5;
 const STORAGE_KEY = 'lumina-canvas-data';
 const MIN_RIGHT_WIDTH = 250;
 
+// 按长边估算档位标签，用于展示 AI 生图的真实输出分辨率
+function formatResolutionTier(width: number, height: number): string {
+  const longSide = Math.max(width, height);
+  if (longSide >= 3000) return '约4K';
+  if (longSide >= 1500) return '约2K';
+  return '约1K';
+}
+
 const App: React.FC = () => {
   // --- Core State ---
   const [elements, setElements] = useState<CanvasElement[]>(() => {
@@ -287,7 +295,7 @@ const App: React.FC = () => {
   }, []);
 
   // 将 AI 生成的图片插入画布中央（在 getNextElementName 之后声明，避免 TDZ）
-  const handleInsertAIImage = useCallback((dataUrl: string, imgW: number, imgH: number) => {
+  const handleInsertAIImage = useCallback((dataUrl: string, imgW: number, imgH: number, sourceResolution?: { width: number; height: number }) => {
     if (!canvasRef.current) return;
     const rect = canvasRef.current.getBoundingClientRect();
     const centerX = (rect.width / 2 - offset.x) / scale;
@@ -302,6 +310,7 @@ const App: React.FC = () => {
       content: dataUrl,
       name: getNextElementName('AI 生图'),
       zIndex: Math.max(0, ...elementsRef.current.map(e => e.zIndex)) + 1,
+      sourceResolution,
     };
     saveHistory(elementsRef.current);
     setElements(prev => [...prev, newEl]);
@@ -1923,6 +1932,11 @@ const App: React.FC = () => {
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-xs font-black text-violet-900 truncate uppercase tracking-widest">{el.name || '智能对象'}</p>
+                              {el.sourceResolution && (
+                                <p className="text-[11px] text-violet-400 font-bold opacity-80 mt-0.5">
+                                  {el.sourceResolution.width}×{el.sourceResolution.height}（{formatResolutionTier(el.sourceResolution.width, el.sourceResolution.height)}）
+                                </p>
+                              )}
                               <p className="text-[11px] text-violet-500 font-bold opacity-80 mt-1">点击分析选中素材 →</p>
                             </div>
                           </div>

@@ -4,7 +4,7 @@ import { useImageGeneration } from '../hooks/useImageGeneration';
 interface AIImagePanelProps {
   isOpen: boolean;
   onClose: () => void;
-  onInsertImage: (dataUrl: string, width: number, height: number) => void;
+  onInsertImage: (dataUrl: string, width: number, height: number, sourceResolution?: { width: number; height: number }) => void;
   onShowToast: (msg: string) => void;
   selectedImageDataUrls?: string[]; // 若已选中画布图片（最多 2 张），传入其 data URL 列表
 }
@@ -124,7 +124,8 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
 
     if (result) {
       const selected = ASPECT_RATIOS.find(r => r.value === aspectRatio) || ASPECT_RATIOS[0];
-      onInsertImage(result.dataUrl, selected.w, selected.h);
+      const sourceResolution = result.width && result.height ? { width: result.width, height: result.height } : undefined;
+      onInsertImage(result.dataUrl, selected.w, selected.h, sourceResolution);
       const modelLabel = MODEL_OPTIONS.find(m => m.value === model)?.label || model;
       const sizeLabel = result.width && result.height
         ? `，${result.width}×${result.height}${formatResolutionTier(result.width, result.height)}`

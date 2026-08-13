@@ -18,6 +18,7 @@ export interface CanvasElement {
   lineHeight?: number;                // Text line height equivalent
   letterSpacing?: number;             // Text letter spacing in px
   fontSize?: number;                  // Text font size in px (default: 14)
+  sourceResolution?: { width: number; height: number }; // AI 生图的真实输出像素尺寸（画布上的 width/height 只是显示大小，不等于这个）
 }
 
 export interface Message {
