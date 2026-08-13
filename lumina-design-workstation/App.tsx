@@ -2081,7 +2081,7 @@ const App: React.FC = () => {
                   }
                 }}
                 placeholder="询问 Lumina..."
-                className="w-full bg-gray-50/50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-3xl p-5 pr-16 text-base leading-relaxed focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 focus:bg-white transition-all shadow-inner resize-none min-h-[120px]"
+                className="w-full bg-gray-50/50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-3xl p-5 pr-16 text-sm leading-relaxed focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 focus:bg-white transition-all shadow-inner resize-none min-h-[120px]"
               /><button type="button" onClick={() => handleSendMessage()} disabled={isTyping || !inputText.trim()} className={`absolute bottom-5 right-5 w-11 h-11 rounded-2xl flex items-center justify-center transition-all ${inputText.trim() ? 'bg-violet-600 dark:bg-violet-600 text-white shadow-lg shadow-violet-200 active:scale-90' : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500'}`}><i className="fa-solid fa-paper-plane text-sm"></i></button>
             </div>
           </div>
