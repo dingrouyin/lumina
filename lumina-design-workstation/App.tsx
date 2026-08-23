@@ -15,6 +15,8 @@ const MIN_ELEMENT_SIZE = 20;
 const SNAP_THRESHOLD = 8; // screen px；比较时会按当前 scale 换算成画布坐标，保证缩放后手感一致
 const STORAGE_KEY = 'lumina-canvas-data';
 const MIN_RIGHT_WIDTH = 250;
+// 图片连线专用强调色——独立于选中框/按钮用的紫色系，避免连线被当成选中态而被忽略
+const CONNECTION_LINE_COLOR = '#1D9E75';
 
 // 按长边估算档位标签，用于展示 AI 生图的真实输出分辨率
 function formatResolutionTier(width: number, height: number): string {
@@ -22,6 +24,14 @@ function formatResolutionTier(width: number, height: number): string {
   if (longSide >= 3000) return '约4K';
   if (longSide >= 1500) return '约2K';
   return '约1K';
+}
+
+// 连接两点的三次贝塞尔曲线路径：横向控制点偏移量随两点距离自适应，保证不同相对位置下弧度自然
+function connectionCurvePath(x1: number, y1: number, x2: number, y2: number, scale: number) {
+  const offset = Math.max(Math.abs(x2 - x1) * 0.5, 40 / scale);
+  const c1x = x1 + offset;
+  const c2x = x2 - offset;
+  return `M ${x1},${y1} C ${c1x},${y1} ${c2x},${y2} ${x2},${y2}`;
 }
 
 const App: React.FC = () => {
@@ -175,8 +185,10 @@ const App: React.FC = () => {
 
   // --- AI 生图面板状态 ---
   const [showAIImagePanel, setShowAIImagePanel] = useState(false);
-  // 打开面板时快照选中图片 URL 列表（最多 2 张，防止打开时事件冒泡导致选区丢失）
+  // 打开面板时快照选中图片的 URL 列表（防止打开时事件冒泡导致选区丢失）
   const [aiEditImageDataUrls, setAiEditImageDataUrls] = useState<string[]>([]);
+  // 与上面数组一一对应的元素 id——批量换道具功能要靠它找到"底图"（第一张）在画布上的真实位置，才能把变体结果摆在它旁边
+  const [aiEditImageIds, setAiEditImageIds] = useState<string[]>([]);
 
 
   // --- Tool State ---
@@ -187,6 +199,86 @@ const App: React.FC = () => {
   useEffect(() => {
     setToolMode('select');
     setCurrentPoints([]);
+  }, []);
+
+  // --- 图片连线（决定 AI 改图指令里"图1/图2/图3/图4"的引用顺序）---
+  // 不用单独的工具模式：在选择模式下 hover 图片会露出一个连接点，从那里按住拖一条线到另一张图上放开即可连上，
+  // 松手立刻恢复正常操作，不需要手动切回选择工具。最多支持 4 张（受限于生图模型能接受的参考图数量，Gemini
+  // 2.5 Flash Image 这个默认模型实测只吃 3 张，具体上限在 AIImagePanel 里按所选模型再校验一次）。
+  const MAX_CONNECTED_IMAGES = 4;
+  const [connectedChain, setConnectedChain] = useState<string[]>([]);
+  const connectedChainRef = useRef<string[]>([]);
+  useEffect(() => { connectedChainRef.current = connectedChain; }, [connectedChain]);
+
+  // 链条里只要有一张图被删除，就把它摘出去；剩不到 2 张时整条链失去意义，直接清空
+  useEffect(() => {
+    setConnectedChain(prev => {
+      const next = prev.filter(id => elements.some(el => el.id === id));
+      if (next.length < 2) return next.length === prev.length ? prev : [];
+      return next.length === prev.length ? prev : next;
+    });
+  }, [elements]);
+
+  const [connectDragFromId, setConnectDragFromId] = useState<string | null>(null);
+  const [connectDragPoint, setConnectDragPoint] = useState<{ x: number; y: number } | null>(null);
+  const connectDragFromRef = useRef<string | null>(null);
+
+  // 只依赖 ref，不依赖闭包里的 offset/scale state，所以可以用空依赖数组安全地长期复用
+  const screenToCanvasStable = useCallback((clientX: number, clientY: number) => {
+    if (!canvasRef.current) return { x: 0, y: 0 };
+    const rect = canvasRef.current.getBoundingClientRect();
+    return {
+      x: (clientX - rect.left - offsetRef.current.x) / scaleRef.current,
+      y: (clientY - rect.top - offsetRef.current.y) / scaleRef.current,
+    };
+  }, []);
+
+  const handleConnectDragStart = useCallback((e: React.PointerEvent, id: string) => {
+    connectDragFromRef.current = id;
+    setConnectDragFromId(id);
+    setConnectDragPoint(screenToCanvasStable(e.clientX, e.clientY));
+  }, [screenToCanvasStable]);
+
+  const handleConnectDragMove = useCallback((clientX: number, clientY: number) => {
+    if (!connectDragFromRef.current) return;
+    setConnectDragPoint(screenToCanvasStable(clientX, clientY));
+  }, [screenToCanvasStable]);
+
+  const handleConnectDragEnd = useCallback((clientX: number, clientY: number) => {
+    const fromId = connectDragFromRef.current;
+    connectDragFromRef.current = null;
+    setConnectDragFromId(null);
+    setConnectDragPoint(null);
+    if (!fromId) return;
+
+    const hitEl = document.elementFromPoint(clientX, clientY) as HTMLElement | null;
+    const targetNode = hitEl?.closest('[data-element-id]');
+    const toId = targetNode?.getAttribute('data-element-id');
+    if (!toId || toId === fromId) return;
+    const toEl = elementsRef.current.find(el => el.id === toId);
+    if (!toEl || toEl.type !== 'image') return;
+
+    setConnectedChain(prev => {
+      const fromInChain = prev.includes(fromId);
+      const toInChain = prev.includes(toId);
+      if (fromInChain && toInChain) return prev; // 已经在同一组里，不用重复连
+      if (!fromInChain && !toInChain) return [fromId, toId]; // 两张都是新的：另起一组，替换旧的
+      if (prev.length >= MAX_CONNECTED_IMAGES) {
+        handleShowToast(`最多支持同时关联 ${MAX_CONNECTED_IMAGES} 张参考图`);
+        return prev;
+      }
+      return [...prev, fromInChain ? toId : fromId];
+    });
+    // 注意：handleShowToast 在文件里定义得比这里靠后，但它是 useCallback([]) 的稳定引用，
+    // 这个函数本身只会在挂载完成后作为事件回调被调用，届时 handleShowToast 早已存在，不会有 TDZ 问题；
+    // 只是不放进依赖数组，避免它在这个 useCallback 求值瞬间（此时它确实还没声明）被提前访问。
+  }, []);
+
+  const removeFromConnectedChain = useCallback((id: string) => {
+    setConnectedChain(prev => {
+      const next = prev.filter(i => i !== id);
+      return next.length < 2 ? [] : next;
+    });
   }, []);
 
   // --- Pen Tool State ---
@@ -362,6 +454,46 @@ const App: React.FC = () => {
     setSelectedIds([newEl.id]);
     setShowAIImagePanel(false);
   }, [offset, scale, getNextElementName, saveHistory]);
+
+  // 批量换道具：每张变体结果依次插入画布，从底图右侧开始往下错开摆放（MVP阶段先不追求好看，能看清一张张对应即可）
+  // 不关闭面板、不改变当前选区——面板里的批量循环还没跑完，用户可能还要盯着进度看
+  const handleInsertBatchVariant = useCallback((dataUrl: string, imgW: number, imgH: number, variantIndex: number, sourceResolution?: { width: number; height: number }) => {
+    const baseId = aiEditImageIds[0];
+    const baseEl = baseId ? elementsRef.current.find(el => el.id === baseId) : undefined;
+    const baseX = baseEl?.x ?? 0;
+    const baseY = baseEl?.y ?? 0;
+    const baseW = baseEl?.width ?? imgW;
+    const spacing = 40;
+    const newEl: CanvasElement = {
+      id: crypto.randomUUID(),
+      type: 'image',
+      x: baseX + baseW + spacing,
+      y: baseY + variantIndex * (imgH + spacing),
+      width: imgW,
+      height: imgH,
+      content: dataUrl,
+      name: getNextElementName('批量生成'),
+      zIndex: Math.max(0, ...elementsRef.current.map(e => e.zIndex)) + 1,
+      sourceResolution,
+    };
+    saveHistory(elementsRef.current);
+    setElements(prev => [...prev, newEl]);
+  }, [aiEditImageIds, getNextElementName, saveHistory]);
+
+  // 打开/关闭 AI 生图面板；打开时按连线顺序（没连线则按选中顺序）快照当前选中的图片，逻辑同上面的批量换道具面板
+  const handleToggleAIImagePanel = useCallback(() => {
+    if (!showAIImagePanel) {
+      const chain = connectedChainRef.current;
+      const validChain = chain.length >= 2 && chain.every(id => elementsRef.current.some(el => el.id === id && el.type === 'image'));
+      const orderedImageIds = validChain
+        ? chain
+        : selectedIdsRef.current.filter(id => elementsRef.current.find(el => el.id === id)?.type === 'image');
+      const selectedImages = orderedImageIds.map(id => elementsRef.current.find(el => el.id === id)!.content);
+      setAiEditImageDataUrls(selectedImages);
+      setAiEditImageIds(orderedImageIds);
+    }
+    setShowAIImagePanel(prev => !prev);
+  }, [showAIImagePanel]);
 
   const dragRef = useRef<{
     startX: number;
@@ -1582,10 +1714,71 @@ const App: React.FC = () => {
           style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`, width: '10000px', height: '10000px' }}
         >
           {elements.map(el => (
-            <CanvasElementComp key={el.id} element={el} isSelected={selectedIds.includes(el.id)} isEditing={editingId === el.id} isDrawingMode={toolMode !== 'select'}
+            <CanvasElementComp key={el.id} element={el} isSelected={selectedIds.includes(el.id)} isEditing={editingId === el.id} isDrawingMode={toolMode === 'draw'}
               onSelect={handleElementSelect} onDragStart={handleElementDragStart} onResizeStart={handleElementResizeStart} onDoubleClick={handleElementDoubleClick}
-              onUpdateContent={handleElementUpdateContent} onFinishEdit={handleElementFinishEdit} />
+              onUpdateContent={handleElementUpdateContent} onFinishEdit={handleElementFinishEdit}
+              onConnectDragStart={handleConnectDragStart} onConnectDragMove={handleConnectDragMove} onConnectDragEnd={handleConnectDragEnd} />
           ))}
+
+          {/* 图片连线：已连好的链条 + 正在拖拽中的连线预览，用画布坐标画在内容层里，跟随缩放平移 */}
+          {(connectedChain.length >= 2 || (connectDragFromId && connectDragPoint)) && (
+            <svg className="absolute top-0 left-0 w-full h-full pointer-events-none z-[10000]" style={{ overflow: 'visible' }}>
+              {connectedChain.length >= 2 && (() => {
+                const nodes = connectedChain
+                  .map(id => elements.find(el => el.id === id))
+                  .filter((el): el is CanvasElement => !!el)
+                  .map(el => ({ id: el.id, x: el.x + el.width / 2, y: el.y + el.height / 2 }));
+                if (nodes.length < 2) return null;
+                const r = 11 / scale;
+                // 只有"最新连上的那一对"参与脉冲动画：星形拓扑下新连接必然经过底图（nodes[0]），
+                // 另一端是链条里最后一个节点；更早连上的节点保持静态实色，避免整条链一起闪
+                const pulseIds = new Set([nodes[0].id, nodes[nodes.length - 1].id]);
+                return (
+                  <g>
+                    {/* 星形拓扑：所有连线都从底图（第一个节点）发出，而不是逐个首尾相连——
+                        这样才能表达"1张底图 + N张道具变体"的批量场景，而不是一条线性链 */}
+                    {nodes.slice(1).map((n) => (
+                      <path key={n.id} className="connection-line" d={connectionCurvePath(nodes[0].x, nodes[0].y, n.x, n.y, scale)}
+                        fill="none" stroke={CONNECTION_LINE_COLOR} strokeWidth={2.5 / scale} strokeDasharray={`${6 / scale} ${6 / scale}`} strokeLinecap="round" />
+                    ))}
+                    {nodes.map((n, i) => (
+                      <g key={n.id}>
+                        {pulseIds.has(n.id) && (
+                          <circle className="connection-node-pulse" cx={n.x} cy={n.y} r={r} fill="none" stroke={CONNECTION_LINE_COLOR} strokeWidth={1.5 / scale} />
+                        )}
+                        <circle cx={n.x} cy={n.y} r={r} fill={CONNECTION_LINE_COLOR} stroke="#fff" strokeWidth={1.5 / scale} />
+                        <text x={n.x} y={n.y} fill="#fff" fontSize={11 / scale} fontWeight="bold" textAnchor="middle" dominantBaseline="central">{i + 1}</text>
+                        {/* 每个节点单独的移除按钮，浮在编号右上角 */}
+                        <g
+                          className="pointer-events-auto cursor-pointer"
+                          onPointerDown={(e) => { e.stopPropagation(); removeFromConnectedChain(n.id); }}
+                        >
+                          <circle cx={n.x + r * 1.6} cy={n.y - r * 1.6} r={8 / scale} fill="#ffffff" stroke={CONNECTION_LINE_COLOR} strokeWidth={1.5 / scale} />
+                          <text x={n.x + r * 1.6} y={n.y - r * 1.6} fill={CONNECTION_LINE_COLOR} fontSize={10 / scale} fontWeight="bold" textAnchor="middle" dominantBaseline="central">×</text>
+                        </g>
+                      </g>
+                    ))}
+                  </g>
+                );
+              })()}
+              {connectDragFromId && connectDragPoint && (() => {
+                // 星形拓扑下最终画出来的线永远是"底图→新节点"，不管你实际从链条里哪个节点拖出去的——
+                // 所以预览线也要锚定在底图上，不能锚在真实抓取点，否则拖拽途中看到的起点和松手后画出来的起点对不上
+                const chain = connectedChain;
+                const anchorId = (chain.length >= 2 && chain.includes(connectDragFromId)) ? chain[0] : connectDragFromId;
+                const from = elements.find(el => el.id === anchorId);
+                if (!from) return null;
+                const fx = from.x + from.width / 2, fy = from.y + from.height / 2;
+                return (
+                  <g>
+                    <path className="connection-line" d={connectionCurvePath(fx, fy, connectDragPoint.x, connectDragPoint.y, scale)}
+                      fill="none" stroke={CONNECTION_LINE_COLOR} strokeWidth={2.5 / scale} strokeDasharray={`${6 / scale} ${6 / scale}`} strokeLinecap="round" opacity={0.8} />
+                    <circle cx={connectDragPoint.x} cy={connectDragPoint.y} r={5 / scale} fill={CONNECTION_LINE_COLOR} opacity={0.8} />
+                  </g>
+                );
+              })()}
+            </svg>
+          )}
 
           {toolMode === 'draw' && currentPoints.length > 0 && (
             <svg className="absolute top-0 left-0 w-full h-full pointer-events-none z-[9999]" style={{ overflow: 'visible' }}>
@@ -1629,29 +1822,6 @@ const App: React.FC = () => {
           </button>
           <button title="输入文本" onPointerDown={(e) => { e.stopPropagation(); addTextCard(); }} className="w-10 h-10 flex items-center justify-center bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 hover:border-violet-300 hover:text-violet-600 text-gray-700 dark:text-gray-200 rounded-full cursor-pointer transition-all shadow-sm active:scale-95 shrink-0">
             <i className="fa-solid fa-t text-sm"></i>
-          </button>
-
-          {/* AI 生图按钮 */}
-          <button
-            title="AI 生图（Imagen 3）"
-            onPointerDown={(e) => {
-              e.stopPropagation();
-              if (!showAIImagePanel) {
-                const selectedImages = elementsRef.current
-                  .filter(el => selectedIdsRef.current.includes(el.id) && el.type === 'image')
-                  .slice(0, 2)
-                  .map(el => el.content);
-                setAiEditImageDataUrls(selectedImages);
-              }
-              setShowAIImagePanel(prev => !prev);
-            }}
-            className={`w-10 h-10 flex items-center justify-center rounded-full cursor-pointer transition-all shadow-sm active:scale-95 shrink-0 border ${
-              showAIImagePanel
-                ? 'bg-gradient-to-br from-violet-600 to-fuchsia-500 border-transparent text-white shadow-md shadow-violet-300'
-                : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 hover:border-violet-300 hover:text-violet-600 text-gray-700 dark:text-gray-200'
-            }`}
-          >
-            <i className="fa-solid fa-wand-magic-sparkles text-sm" />
           </button>
 
           <button
@@ -1853,6 +2023,7 @@ const App: React.FC = () => {
         isOpen={showAIImagePanel}
         onClose={() => setShowAIImagePanel(false)}
         onInsertImage={handleInsertAIImage}
+        onInsertBatchImage={handleInsertBatchVariant}
         onShowToast={handleShowToast}
         selectedImageDataUrls={aiEditImageDataUrls}
       />
@@ -1943,6 +2114,8 @@ const App: React.FC = () => {
         onShowToast={handleShowToast}
         isDarkMode={isDarkMode}
         onToggleTheme={toggleTheme}
+        showAIImagePanel={showAIImagePanel}
+        onToggleAIImagePanel={handleToggleAIImagePanel}
       />
 
       <aside style={{ width: `${rightPanelWidth}px`, maxWidth: '400px' }} className="bg-white dark:bg-gray-900 border-l border-black/5 flex flex-col z-20 shadow-[-10px_0_30px_rgba(0,0,0,0.03)] shrink-0 relative overflow-hidden">

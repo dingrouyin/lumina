@@ -8,9 +8,11 @@ interface RightDockProps {
     onShowToast?: (msg: string) => void;
     isDarkMode: boolean;
     onToggleTheme: () => void;
+    showAIImagePanel: boolean;
+    onToggleAIImagePanel: () => void;
 }
 
-const RightDock: React.FC<RightDockProps> = ({ activeDrawer, dockedPanels, onToggle, hasSelection, onShowToast, isDarkMode, onToggleTheme }) => {
+const RightDock: React.FC<RightDockProps> = ({ activeDrawer, dockedPanels, onToggle, hasSelection, onShowToast, isDarkMode, onToggleTheme, showAIImagePanel, onToggleAIImagePanel }) => {
     return (
         <aside className="w-16 h-full flex flex-col items-center justify-between bg-white dark:bg-gray-900 border-l border-gray-100 dark:border-gray-800 shadow-sm relative z-[45] shrink-0 select-none overflow-y-auto">
             {/* Top group: 素材 + 模板 */}
@@ -62,6 +64,24 @@ const RightDock: React.FC<RightDockProps> = ({ activeDrawer, dockedPanels, onTog
                 >
                     <i className="fa-solid fa-font text-sm pointer-events-none"></i>
                     <span className="text-[9px] font-bold pointer-events-none tracking-widest leading-none">文字</span>
+                </button>
+            </div>
+
+            <div className="w-6 h-px bg-gray-100 dark:bg-gray-800 shrink-0"></div>
+
+            {/* AI 生图（原悬浮工具栏里的"AI 生图"按钮，移到这里常驻） */}
+            <div className="flex flex-col gap-2 w-full items-center py-2">
+                <button
+                    type="button"
+                    onClick={e => { e.preventDefault(); e.stopPropagation(); onToggleAIImagePanel(); }}
+                    className={`w-12 h-12 flex flex-col gap-1 items-center justify-center rounded-xl transition-all duration-300 focus:ring-0 focus:outline-none ${showAIImagePanel
+                        ? 'bg-gradient-to-br from-violet-600 to-fuchsia-500 text-white shadow-lg shadow-violet-200 dark:shadow-violet-950/50'
+                        : 'text-gray-400 hover:text-violet-600 hover:bg-violet-50 dark:text-gray-500 dark:hover:text-violet-400 dark:hover:bg-violet-900/30'
+                        }`}
+                    title="AI 生图（Imagen 3）"
+                >
+                    <i className="fa-solid fa-wand-magic-sparkles text-sm pointer-events-none"></i>
+                    <span className="text-[9px] font-bold pointer-events-none tracking-widest leading-none">生图</span>
                 </button>
             </div>
 

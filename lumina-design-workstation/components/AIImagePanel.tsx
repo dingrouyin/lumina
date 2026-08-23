@@ -5,8 +5,10 @@ interface AIImagePanelProps {
   isOpen: boolean;
   onClose: () => void;
   onInsertImage: (dataUrl: string, width: number, height: number, sourceResolution?: { width: number; height: number }) => void;
+  // 批量换道具：每生成一张变体结果就调用一次，variantIndex 是它在变体列表里的顺序（0-based），用于在画布上错开摆放
+  onInsertBatchImage: (dataUrl: string, width: number, height: number, variantIndex: number, sourceResolution?: { width: number; height: number }) => void;
   onShowToast: (msg: string) => void;
-  selectedImageDataUrls?: string[]; // 若已选中画布图片（最多 2 张），传入其 data URL 列表
+  selectedImageDataUrls?: string[]; // 若已选中/连线画布图片（最多 4 张），传入其 data URL 列表；批量模式下第一张=底图，其余=变体
 }
 
 const ASPECT_RATIOS = [
@@ -28,6 +30,16 @@ const MODEL_OPTIONS = [
 // 目前只有 Seedream 4.5 支持显式指定分辨率，其余模型没有该参数，不在此列出即代表不支持
 const MODEL_RESOLUTIONS: Record<string, readonly string[]> = {
   'bytedance-seed/seedream-4.5': ['1K', '2K', '4K'],
+};
+
+// 各模型能接受的最大参考图张数（查 OpenRouter /api/v1/images/models 的 input_references 字段得来）。
+// 画布连线最多让你关联 4 张，但 Gemini 2.5 Flash Image 这个默认模型实际只吃 3 张，超过了要么切模型要么减图
+const MODEL_MAX_REFERENCE_IMAGES: Record<string, number> = {
+  'google/gemini-2.5-flash-image': 3,
+  'bytedance-seed/seedream-4.5': 4,
+  'google/gemini-3.1-flash-lite-image': 4,
+  'black-forest-labs/flux.2-klein-4b': 4,
+  'openai/gpt-image-2': 4,
 };
 
 const EDIT_MODES = [
@@ -78,6 +90,7 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
   isOpen,
   onClose,
   onInsertImage,
+  onInsertBatchImage,
   onShowToast,
   selectedImageDataUrls,
 }) => {
@@ -90,7 +103,10 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const dragStateRef = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const { generate, isLoading, error, translatedPrompt, usedModel, clearError } = useImageGeneration();
+  const { generate, generateBatch, isLoading, batchProgress, error, translatedPrompt, usedModel, clearError } = useImageGeneration();
+  // isLoading 只在单次 generate() 调用期间为 true，批量模式下每次循环之间会短暂回落，
+  // 所以面板整体的"忙碌"状态要再叠加 batchProgress，避免批量跑到一半时其他控件又能点
+  const isBusy = isLoading || batchProgress !== null;
 
   const handleDragPointerDown = (e: React.PointerEvent) => {
     e.stopPropagation();
@@ -115,6 +131,8 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
   const isEditMode = referenceImages.length > 0;
   const isMultiRef = referenceImages.length > 1;
   const resolutionOptions = MODEL_RESOLUTIONS[model];
+  const maxRefsForModel = MODEL_MAX_REFERENCE_IMAGES[model] ?? 3;
+  const exceedsModelRefLimit = referenceImages.length > maxRefsForModel;
 
   useEffect(() => {
     if (isOpen && textareaRef.current) {
@@ -133,7 +151,7 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
   }, [isEditMode]);
 
   const handleGenerate = async () => {
-    if (!prompt.trim() || isLoading) return;
+    if (!prompt.trim() || isLoading || exceedsModelRefLimit) return;
     clearError();
 
     const result = await generate(
@@ -154,6 +172,36 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
         ? `，${result.width}×${result.height}${formatResolutionTier(result.width, result.height)}`
         : '';
       onShowToast(`✨ ${isEditMode ? '图片已编辑并插入画布' : '图片已生成并插入画布'}（模型：${modelLabel}${sizeLabel}）`);
+      onClose();
+    }
+  };
+
+  // 批量换道具：referenceImages[0] 是底图，其余每张分别和底图配对跑一次现有的双图参考生成，
+  // 不做失败重试——某一张失败就停在那一张，已经成功插入画布的结果保留，不回滚
+  const handleBatchGenerate = async () => {
+    if (!prompt.trim() || isBusy || referenceImages.length < 2) return;
+    clearError();
+
+    const [baseImage, ...variants] = referenceImages;
+    const oneToOne = ASPECT_RATIOS.find(r => r.value === '1:1') || ASPECT_RATIOS[0];
+    const { results, failedAt } = await generateBatch(
+      prompt,
+      baseImage,
+      variants,
+      editMode,
+      model,
+      resolutionOptions ? resolution : undefined,
+    );
+
+    results.forEach((result, i) => {
+      const sourceResolution = result.width && result.height ? { width: result.width, height: result.height } : undefined;
+      onInsertBatchImage(result.dataUrl, oneToOne.w, oneToOne.h, i, sourceResolution);
+    });
+
+    if (failedAt !== null) {
+      onShowToast(`❌ 批量生成在第 ${failedAt + 1} 张（共 ${variants.length} 张）时失败，已停止；前面 ${results.length} 张已插入画布`);
+    } else {
+      onShowToast(`✨ 批量生成完成，共 ${results.length} 张变体已插入画布`);
       onClose();
     }
   };
@@ -222,7 +270,7 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
                   key={m.value}
                   type="button"
                   onClick={() => { setModel(m.value); clearError(); }}
-                  disabled={isLoading}
+                  disabled={isBusy}
                   title={m.hint}
                   className={`py-2 px-2.5 rounded-xl text-xs font-bold transition-all border ${
                     model === m.value
@@ -246,7 +294,7 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
                     key={r}
                     type="button"
                     onClick={() => setResolution(r)}
-                    disabled={isLoading}
+                    disabled={isBusy}
                     className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all border ${
                       resolution === r
                         ? 'bg-violet-600 dark:bg-violet-600 border-violet-600 dark:border-violet-500 text-white shadow-md shadow-violet-200'
@@ -286,10 +334,20 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
                     {isMultiRef ? `已选中 ${referenceImages.length} 张图片` : '当前选中图片'}
                   </p>
                   <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
-                    {isMultiRef ? '在下方指令里用"图1""图2"指代对应的图，例如"把图1的产品放入图2的场景中"' : 'AI 将在此图基础上进行修改'}
+                    {isMultiRef ? '在下方指令里用"图1""图2"…依次指代对应的图，例如"把图1的产品放入图2的场景中"；批量生成时图1是底图，其余是要分别换上的道具变体' : 'AI 将在此图基础上进行修改'}
                   </p>
                 </div>
               </div>
+
+              {/* 超出当前模型能接受的参考图上限时提醒——不同模型上限不一样，画布上连的图可能比这个模型能吃的还多 */}
+              {exceedsModelRefLimit && (
+                <div className="flex items-start gap-2 px-3 py-2.5 bg-orange-50 dark:bg-orange-950/40 border border-orange-100 dark:border-orange-900/50 rounded-2xl text-orange-600 dark:text-orange-400 animate-in fade-in">
+                  <i className="fa-solid fa-triangle-exclamation text-xs mt-0.5 shrink-0" />
+                  <p className="text-[11px] font-medium leading-relaxed">
+                    当前模型「{MODEL_OPTIONS.find(m => m.value === model)?.label || model}」最多支持 {maxRefsForModel} 张参考图，你关联了 {referenceImages.length} 张，请切换模型或减少参考图后再生成
+                  </p>
+                </div>
+              )}
 
               {/* 编辑类型选择 */}
               <div className="space-y-1.5">
@@ -299,7 +357,7 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
                     <button
                       key={m.value}
                       onClick={() => { setEditMode(m.value); clearError(); }}
-                      disabled={isLoading}
+                      disabled={isBusy}
                       className={`flex-1 py-2 px-1 rounded-xl text-[11px] font-bold transition-all border flex flex-col items-center gap-1 ${
                         editMode === m.value
                           ? 'bg-violet-600 dark:bg-violet-600 border-violet-600 dark:border-violet-500 text-white shadow-md shadow-violet-200'
@@ -323,7 +381,7 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
                         key={chip.id}
                         type="button"
                         onClick={() => { setPrompt(chip.defaultPrompt); clearError(); textareaRef.current?.focus(); }}
-                        disabled={isLoading}
+                        disabled={isBusy}
                         className="flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-bold border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:border-violet-300 hover:text-violet-600 transition-all disabled:opacity-40"
                       >
                         <span>{chip.emoji}</span>
@@ -361,7 +419,7 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
                   ? activeEditMode.hint
                   : '描述你想生成的图片，例如：a serene mountain landscape at golden hour, photorealistic, 8K…'
               }
-              className="w-full h-[90px] resize-none bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl px-4 py-3 text-sm text-gray-700 dark:text-gray-200 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-violet-400/30 focus:border-violet-400 transition-all font-medium leading-relaxed"
+              className="w-full h-[90px] resize-none bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl px-4 py-3 text-sm text-gray-700 dark:text-gray-200 placeholder-gray-300 dark:placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-violet-400/30 focus:border-violet-400 transition-all font-medium leading-relaxed"
               disabled={isLoading}
             />
           </div>
@@ -375,7 +433,7 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
                   <button
                     key={r.value}
                     onClick={() => setAspectRatio(r.value)}
-                    disabled={isLoading}
+                    disabled={isBusy}
                     className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all border ${
                       aspectRatio === r.value
                         ? 'bg-violet-600 dark:bg-violet-600 border-violet-600 dark:border-violet-500 text-white shadow-md shadow-violet-200'
@@ -394,7 +452,7 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
             className="w-full rounded-2xl overflow-hidden bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-800 flex items-center justify-center"
             style={isEditMode ? { height: 80 } : { aspectRatio: `${selectedRatio.w / selectedRatio.h}`, maxHeight: 160 }}
           >
-            {isLoading ? (
+            {(isLoading || batchProgress) ? (
               <div className="w-full h-full relative overflow-hidden bg-gray-100 dark:bg-gray-800">
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/60 to-transparent -translate-x-full animate-[shimmer_1.5s_infinite]" />
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
@@ -402,7 +460,9 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
                     <i className="fa-solid fa-paintbrush text-white text-xs" />
                   </div>
                   <p className="text-xs font-bold text-gray-400 dark:text-gray-500 animate-pulse">
-                    {(MODEL_OPTIONS.find(m => m.value === model)?.label || model)}{isEditMode ? ' 正在修图…' : ' 正在生图…'}
+                    {batchProgress
+                      ? `批量生成中 ${batchProgress.current}/${batchProgress.total}`
+                      : `${(MODEL_OPTIONS.find(m => m.value === model)?.label || model)}${isEditMode ? ' 正在修图…' : ' 正在生图…'}`}
                   </p>
                 </div>
               </div>
@@ -444,29 +504,55 @@ const AIImagePanel: React.FC<AIImagePanelProps> = ({
             </div>
           )}
 
-          {/* 生成/改图按钮 */}
-          <button
-            onClick={handleGenerate}
-            disabled={!prompt.trim() || isLoading}
-            className={`w-full py-3.5 rounded-2xl font-black text-sm tracking-tight transition-all ${
-              !prompt.trim() || isLoading
-                ? 'bg-gray-100 dark:bg-gray-800 text-gray-300 dark:text-gray-600 cursor-not-allowed'
-                : 'bg-gradient-to-r from-violet-600 to-fuchsia-500 text-white shadow-lg shadow-violet-200 hover:shadow-xl hover:shadow-violet-300 hover:scale-[1.01] active:scale-[0.99]'
-            }`}
-          >
-            {isLoading ? (
-              <span className="flex items-center justify-center gap-2">
-                <i className="fa-solid fa-spinner fa-spin" />
-                {isEditMode ? '修图中，请稍候…' : '生成中，请稍候…'}
-              </span>
-            ) : (
-              <span className="flex items-center justify-center gap-2">
-                <i className={`fa-solid ${isEditMode ? 'fa-pen-to-square' : 'fa-wand-magic-sparkles'}`} />
-                {isEditMode ? '开始改图' : '生成图片'}
-                <span className="text-[10px] opacity-60 font-medium">Ctrl+Enter</span>
-              </span>
+          {/* 生成/改图按钮 + 批量换道具按钮（选中≥2张图时才出现，第一张=底图，其余=变体） */}
+          <div className={isMultiRef ? 'flex gap-2' : ''}>
+            <button
+              onClick={handleGenerate}
+              disabled={!prompt.trim() || isBusy || exceedsModelRefLimit}
+              className={`${isMultiRef ? 'flex-1' : 'w-full'} py-3.5 rounded-2xl font-black text-sm tracking-tight transition-all ${
+                !prompt.trim() || isBusy || exceedsModelRefLimit
+                  ? 'bg-gray-100 dark:bg-gray-800 text-gray-300 dark:text-gray-600 cursor-not-allowed'
+                  : 'bg-gradient-to-r from-violet-600 to-fuchsia-500 text-white shadow-lg shadow-violet-200 hover:shadow-xl hover:shadow-violet-300 hover:scale-[1.01] active:scale-[0.99]'
+              }`}
+            >
+              {isLoading && !batchProgress ? (
+                <span className="flex items-center justify-center gap-2">
+                  <i className="fa-solid fa-spinner fa-spin" />
+                  {isEditMode ? '修图中，请稍候…' : '生成中，请稍候…'}
+                </span>
+              ) : (
+                <span className="flex items-center justify-center gap-2">
+                  <i className={`fa-solid ${isEditMode ? 'fa-pen-to-square' : 'fa-wand-magic-sparkles'}`} />
+                  {isEditMode ? '开始改图' : '生成图片'}
+                  {!isMultiRef && <span className="text-[10px] opacity-60 font-medium">Ctrl+Enter</span>}
+                </span>
+              )}
+            </button>
+            {isMultiRef && (
+              <button
+                onClick={handleBatchGenerate}
+                disabled={!prompt.trim() || isBusy}
+                title="第一张选中的图作为底图，其余每张分别和底图配一次图生成，指令共用同一段"
+                className={`flex-1 py-3.5 rounded-2xl font-black text-sm tracking-tight transition-all border-2 ${
+                  !prompt.trim() || isBusy
+                    ? 'bg-gray-100 dark:bg-gray-800 border-transparent text-gray-300 dark:text-gray-600 cursor-not-allowed'
+                    : 'bg-white dark:bg-gray-900 border-violet-500 dark:border-violet-500 text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-950/40 active:scale-[0.99]'
+                }`}
+              >
+                {batchProgress ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <i className="fa-solid fa-spinner fa-spin" />
+                    生成中 {batchProgress.current}/{batchProgress.total}
+                  </span>
+                ) : (
+                  <span className="flex items-center justify-center gap-2">
+                    <i className="fa-solid fa-layer-group" />
+                    批量生成（{referenceImages.length - 1}张）
+                  </span>
+                )}
+              </button>
             )}
-          </button>
+          </div>
         </div>
       </div>
     </>

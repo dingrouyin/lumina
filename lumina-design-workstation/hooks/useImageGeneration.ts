@@ -6,9 +6,17 @@ export interface GenerateResult {
   height?: number;
 }
 
+export interface BatchGenerateResult {
+  results: GenerateResult[]; // 已成功生成的结果，按变体顺序排列
+  failedAt: number | null;   // 失败在第几个变体（0-based），全部成功则为 null
+}
+
 export interface UseImageGenerationReturn {
   generate: (prompt: string, aspectRatio: string, inputImageDataUrls?: string[], editMode?: string, model?: string, resolution?: string) => Promise<GenerateResult | null>;
+  // 批量换道具：baseImageDataUrl（底图）分别和 variantImageDataUrls 里的每一张组成 [底图, 变体] 两图参考，依次调用 generate()
+  generateBatch: (prompt: string, baseImageDataUrl: string, variantImageDataUrls: string[], editMode?: string, model?: string, resolution?: string) => Promise<BatchGenerateResult>;
   isLoading: boolean;
+  batchProgress: { current: number; total: number } | null;
   error: string | null;
   translatedPrompt: string | null;
   usedModel: string | null;
@@ -20,6 +28,7 @@ const API_BASE = import.meta.env.DEV ? 'http://localhost:3001' : '';
 
 export function useImageGeneration(): UseImageGenerationReturn {
   const [isLoading, setIsLoading] = useState(false);
+  const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [translatedPrompt, setTranslatedPrompt] = useState<string | null>(null);
   const [usedModel, setUsedModel] = useState<string | null>(null);
@@ -105,5 +114,31 @@ export function useImageGeneration(): UseImageGenerationReturn {
     }
   }, []);
 
-  return { generate, isLoading, error, translatedPrompt, usedModel, outputDimensions, clearError };
+  // 批量换道具 MVP：不做失败重试，某一张失败就停在那一张，把已经成功的结果和失败位置一起报给调用方
+  const generateBatch = useCallback(async (
+    prompt: string,
+    baseImageDataUrl: string,
+    variantImageDataUrls: string[],
+    editMode?: string,
+    model?: string,
+    resolution?: string,
+  ): Promise<BatchGenerateResult> => {
+    const results: GenerateResult[] = [];
+    setBatchProgress({ current: 0, total: variantImageDataUrls.length });
+
+    for (let i = 0; i < variantImageDataUrls.length; i++) {
+      setBatchProgress({ current: i + 1, total: variantImageDataUrls.length });
+      const result = await generate(prompt, '1:1', [baseImageDataUrl, variantImageDataUrls[i]], editMode, model, resolution);
+      if (!result) {
+        setBatchProgress(null);
+        return { results, failedAt: i };
+      }
+      results.push(result);
+    }
+
+    setBatchProgress(null);
+    return { results, failedAt: null };
+  }, [generate]);
+
+  return { generate, generateBatch, isLoading, batchProgress, error, translatedPrompt, usedModel, outputDimensions, clearError };
 }

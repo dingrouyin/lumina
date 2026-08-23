@@ -4,6 +4,38 @@ body {
     -moz-osx-font-smoothing: grayscale;
 }
 
+/* 图片连线：流动虚线动画。dasharray 本身由 SVG 属性按当前画布缩放动态计算，这里只负责让它"流动" */
+.connection-line {
+    animation: dash-flow 0.9s linear infinite;
+}
+
+@keyframes dash-flow {
+    to {
+        stroke-dashoffset: -12;
+    }
+}
+
+/* 连接点呼吸光环：只叠在"最新连上的那一对"节点上。用 transform: scale() + opacity 做循环，
+   不对 SVG 的 r 属性做动画（兼容性/性能都不如 transform），也不用 box-shadow/blur 发光——
+   链条最多 4 个节点、拖拽时坐标要实时重算，滤镜发光在这种场景下太吃性能。
+   transform-box: fill-box 让 scale() 以圆本身的中心为原点，而不是整个 SVG 视口的原点。 */
+.connection-node-pulse {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: pulse-ring 1.6s ease-out infinite;
+}
+
+@keyframes pulse-ring {
+    0% {
+        transform: scale(1);
+        opacity: 0.8;
+    }
+    100% {
+        transform: scale(3.5);
+        opacity: 0;
+    }
+}
+
 /*
  * Bug 1 Ultimate: 核弹级拦截一切未知注入的 fixed/absolute 圆形元素
  * 这些元素特征为：border-radius: 50%, 极小尺寸, 高 z-index

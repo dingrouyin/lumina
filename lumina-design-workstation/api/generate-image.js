@@ -8,7 +8,17 @@ const ALLOWED_MODELS = [
   'openai/gpt-image-2',
 ];
 const MAX_PROMPT_LENGTH = 500;
-const MAX_REFERENCE_IMAGES = 2;
+
+// 各模型能接受的最大参考图张数（查 OpenRouter /api/v1/images/models 的 input_references 字段得来）。
+// 前端画布连线最多让用户关联 4 张，但 Gemini 2.5 Flash Image 这个默认模型实际只吃 3 张，这里按模型分别校验，
+// 不在名单里的模型（理论上不会发生，因为 selectedModel 已经过 ALLOWED_MODELS 白名单校验）保守按 3 处理
+const MODEL_MAX_REFERENCE_IMAGES = {
+  'google/gemini-2.5-flash-image': 3,
+  'bytedance-seed/seedream-4.5': 4,
+  'google/gemini-3.1-flash-lite-image': 4,
+  'black-forest-labs/flux.2-klein-4b': 4,
+  'openai/gpt-image-2': 4,
+};
 
 // 每个模型能接受的 resolution 枚举值不同（查 OpenRouter /api/v1/images/models 得来），
 // 目前候选模型里只有 Seedream 4.5 支持这个字段，其余模型没有该 supported_parameter，
@@ -102,8 +112,9 @@ export default async function handler(req, res) {
   }
 
   const referenceImages = Array.isArray(images) ? images.filter(img => img?.base64) : [];
-  if (referenceImages.length > MAX_REFERENCE_IMAGES) {
-    return res.status(400).json({ error: `最多支持 ${MAX_REFERENCE_IMAGES} 张参考图` });
+  const maxRefsForModel = MODEL_MAX_REFERENCE_IMAGES[selectedModel] ?? 3;
+  if (referenceImages.length > maxRefsForModel) {
+    return res.status(400).json({ error: `模型「${selectedModel}」最多支持 ${maxRefsForModel} 张参考图，请切换模型或减少参考图` });
   }
 
   const apiKey = process.env.OPENROUTER_API_KEY;

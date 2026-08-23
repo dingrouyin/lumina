@@ -13,6 +13,9 @@ interface Props {
   onDoubleClick: (id: string) => void;
   onUpdateContent: (id: string, content: string) => void;
   onFinishEdit: () => void;
+  onConnectDragStart: (e: React.PointerEvent, id: string) => void;
+  onConnectDragMove: (clientX: number, clientY: number) => void;
+  onConnectDragEnd: (clientX: number, clientY: number) => void;
 }
 
 const CanvasElementComp: React.FC<Props> = React.memo(({
@@ -25,7 +28,10 @@ const CanvasElementComp: React.FC<Props> = React.memo(({
   onResizeStart,
   onDoubleClick,
   onUpdateContent,
-  onFinishEdit
+  onFinishEdit,
+  onConnectDragStart,
+  onConnectDragMove,
+  onConnectDragEnd
 }) => {
   const isImage = element.type === 'image';
   const isPath = element.type === 'path';
@@ -84,6 +90,21 @@ const CanvasElementComp: React.FC<Props> = React.memo(({
     // Pointer capture is essential for stable resizing with a pen
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     onResizeStart(e, element.id, dir);
+  };
+
+  const handleConnectHandlePointerDown = (e: React.PointerEvent) => {
+    e.stopPropagation();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    onConnectDragStart(e, element.id);
+  };
+
+  const handleConnectHandlePointerMove = (e: React.PointerEvent) => {
+    onConnectDragMove(e.clientX, e.clientY);
+  };
+
+  const handleConnectHandlePointerUp = (e: React.PointerEvent) => {
+    (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    onConnectDragEnd(e.clientX, e.clientY);
   };
 
   const handleGeneralPointerDown = (e: React.PointerEvent) => {
@@ -311,6 +332,19 @@ const CanvasElementComp: React.FC<Props> = React.memo(({
 
       {!isSelected && !isEditing && !isDrawingMode && (
         <div className="absolute inset-0 pointer-events-none border border-violet-400 dark:border-violet-600 opacity-0 group-hover:opacity-40 rounded-sm export-ignore" />
+      )}
+
+      {/* 连线手柄：只在图片上、hover 时露出，按住拖到另一张图上松开即可连线（不需要切换任何工具模式） */}
+      {isImage && !isEditing && !isDrawingMode && (
+        <div
+          title="拖到另一张图上可以连线关联"
+          onPointerDown={handleConnectHandlePointerDown}
+          onPointerMove={handleConnectHandlePointerMove}
+          onPointerUp={handleConnectHandlePointerUp}
+          className="absolute top-1/2 -right-2.5 -translate-y-1/2 w-5 h-5 rounded-full bg-violet-600 border-2 border-white dark:border-gray-900 shadow-md opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity cursor-crosshair z-[100] export-ignore flex items-center justify-center"
+        >
+          <i className="fa-solid fa-link text-white text-[8px] pointer-events-none" />
+        </div>
       )}
     </div>
   );
